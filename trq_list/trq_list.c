@@ -166,12 +166,18 @@ PRIVATE int list_queue_msgs(
     int all,
     int verbose)
 {
-    json_t *jn_tranger = json_pack("{s:s, s:b}",
-        "path", database,
-        "master", 0
+    json_t *tranger = tranger_startup(
+        json_pack("{s:s, s:b}",
+            "path", database,
+            "master", 0
+        )
     );
+    if(!tranger) {
+        exit(-1);
+    }
+
     tr_queue trq = trq_open(
-        jn_tranger,
+        tranger,
         topic_name,
         0,
         0,
@@ -213,7 +219,7 @@ PRIVATE int list_queue_msgs(
     printf("Total: %d records\n\n", counter);
 
     trq_close(trq);
-
+    tranger_shutdown(tranger);
     return 0;
 }
 
