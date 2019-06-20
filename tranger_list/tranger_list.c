@@ -594,7 +594,12 @@ PRIVATE BOOL list_recursive_topic_cb(
 PRIVATE int list_recursive_topics(list_params_t *list_params)
 {
     char temp[1*1024];
-    snprintf(temp, sizeof(temp), "%s/%s", list_params->path, list_params->database);
+    snprintf(temp, sizeof(temp), "%s%s%s",
+        list_params->path,
+        list_params->path[strlen(list_params->path)-1]=='/'?"":"/",
+        list_params->database
+    );
+
     walk_dir_tree(
         temp,
         "topic_desc.json",
