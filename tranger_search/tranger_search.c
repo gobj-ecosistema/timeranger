@@ -337,7 +337,7 @@ PRIVATE int list_topics(const char *path, const char *database)
     printf("Topics found:\n");
     walk_dir_tree(
         temp,
-        ".*\\.md",
+        "topic_desc.json",
         WD_RECURSIVE|WD_MATCH_REGULAR_FILE,
         list_topic_cb,
         0
@@ -401,7 +401,7 @@ PRIVATE int load_record_callback(
         if(verbose == 1) {
             printf("%s\n", title);
         }
-        if(verbose >= 2) {
+        if(verbose == 2) {
             print_md2_record(tranger, topic, md_record, title, sizeof(title));
             printf("%s\n", title);
         }
@@ -516,7 +516,9 @@ PRIVATE int _search_messages(
         tranger,
         jn_list
     );
-    tranger_close_list(tranger, tr_list);
+    if(tr_list) {
+        tranger_close_list(tranger, tr_list);
+    }
 
     /*-------------------------------*
      *  Free resources
@@ -537,6 +539,29 @@ PRIVATE int list_messages(
     json_t *match_cond,
     int verbose)
 {
+    /*
+     *  Check if path contains all
+     */
+    char bftemp[PATH_MAX];
+    snprintf(bftemp, sizeof(bftemp), "%s%s%s",
+        path,
+        (path[strlen(path)-1]=='/')?"":"/",
+        "topic_desc.json"
+    );
+    if(is_regular_file(bftemp)) {
+        pop_last_segment(bftemp); // pop topic_desc.json
+        topic = pop_last_segment(bftemp);
+        database = pop_last_segment(bftemp);
+        if(!empty_string(topic)) {
+            return _search_messages(
+                bftemp,
+                database,
+                topic,
+                match_cond,
+                verbose
+            );
+        }
+    }
     if(empty_string(database)) {
         fprintf(stderr, "What Database?\n\n");
         list_databases(path);
@@ -604,7 +629,7 @@ PRIVATE int list_recursive_topics(list_params_t *list_params)
 
     walk_dir_tree(
         temp,
-        ".*\\.md",
+        "topic_desc.json",
         WD_RECURSIVE|WD_MATCH_REGULAR_FILE,
         list_recursive_topic_cb,
         list_params
@@ -720,6 +745,11 @@ int main(int argc, char *argv[])
      *  Parse arguments
      */
     argp_parse(&argp, argc, argv, 0, 0, &arguments);
+
+    if(empty_string(arguments.search_content_key)) {
+        printf("\nYou must input a key where search in his content\n");
+        exit(-1);
+    }
 
     uint64_t MEM_MAX_SYSTEM_MEMORY = free_ram_in_kb() * 1024LL;
     MEM_MAX_SYSTEM_MEMORY /= 100LL;
