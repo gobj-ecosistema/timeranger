@@ -333,6 +333,7 @@ PRIVATE int list_topics(const char *path, const char *database)
  ***************************************************************************/
 PRIVATE int load_record_callback(
     json_t *tranger,
+    json_t *topic,
     json_t *list,
     md_record_t *md_record,
     json_t *jn_record
@@ -344,7 +345,6 @@ PRIVATE int load_record_callback(
     int verbose = kw_get_int(list, "verbose", 0, KW_REQUIRED);
     char title[1024];
 
-    json_t *topic = tranger_topic(tranger, kw_get_str(list, "topic_name", "", KW_REQUIRED));
     print_md1_record(tranger, topic, md_record, title, sizeof(title));
 
     BOOL table_mode = FALSE;
