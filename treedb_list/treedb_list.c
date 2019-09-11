@@ -67,8 +67,7 @@ struct arguments
     char *key;
     char *notkey;
 
-    char *from_tm;
-    char *to_tm;
+    char *expand_nodes;
 
 };
 
@@ -119,8 +118,8 @@ static struct argp_option options[] = {
 {"key",                 21,     "KEY",              0,      "Key.",             9},
 {"not-key",             22,     "KEY",              0,      "Not key.",         9},
 
-{"from-tm",             25,     "TIME",             0,      "From msg time.",       10},
-{"to-tm",               26,     "TIME",             0,      "To msg time.",         10},
+{0,                     0,      0,                  0,      "TreeDb options",       30},
+{"expand-nodes",        30,     "LEVEL",            0,      "Expand nodes until LEVEL levels.",         30},
 
 {0}
 };
@@ -190,11 +189,8 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state)
         arguments->notkey = arg;
         break;
 
-    case 25: // from_tm
-        arguments->from_tm = arg;
-        break;
-    case 26: // to_tm
-        arguments->to_tm = arg;
+    case 30:
+        arguments->expand_nodes = arg;
         break;
 
     case ARGP_KEY_ARG:
@@ -237,7 +233,7 @@ PRIVATE BOOL list_db_cb(
     wd_found_type type,     // type found
     const char *fullpath,   // directory+filename found
     const char *directory,  // directory of found filename
-    const char *name,       // name of type found
+    char *name,             // dname[255]
     int level,              // level of tree where file found
     int index               // index of file inside of directory, relative to 0
 )
@@ -306,9 +302,12 @@ PRIVATE int _list_messages(
             database,
             topic_name,
             0, // jn_ids,     // owned
-            0  // jn_filter   // owned
+            0, // jn_filter   // owned
+            0, // TODO jn_options
+            0  // match_fn
         );
 
+        // TODO
         print_json2(topic_name, node_list);
 
         total_counter += json_array_size(node_list);
@@ -377,7 +376,7 @@ PRIVATE BOOL list_recursive_db_cb(
     wd_found_type type,     // type found
     const char *fullpath,   // directory+filename found
     const char *directory,  // directory of found filename
-    const char *name,       // name of type found
+    char *name,             // dname[255]
     int level,              // level of tree where file found
     int index               // index of file inside of directory, relative to 0
 )
@@ -396,6 +395,11 @@ PRIVATE BOOL list_recursive_db_cb(
         list_params2.match_cond,
         list_params2.verbose
     );
+
+    char *p = strstr(name, ".treedb_schema.json");
+    if(p) {
+        *p = 0;
+    }
     printf("\n====> %s: %d records\n", name, partial_counter);
 
     return TRUE; // to continue
@@ -526,6 +530,14 @@ int main(int argc, char *argv[])
             match_cond,
             "notkey",
             json_string(arguments.notkey)
+        );
+    }
+
+    if(arguments.expand_nodes) {
+        json_object_set_new(
+            match_cond,
+            "expand",
+            json_true()
         );
     }
 
