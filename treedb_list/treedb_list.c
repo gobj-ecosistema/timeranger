@@ -312,6 +312,7 @@ PRIVATE int _list_messages(
         print_json2(topic_name, node_list);
 
         total_counter += json_array_size(node_list);
+        partial_counter += json_array_size(node_list);
 
         JSON_DECREF(node_list);
     }
@@ -395,7 +396,7 @@ PRIVATE BOOL list_recursive_db_cb(
         list_params2.match_cond,
         list_params2.verbose
     );
-    printf("\n====> %s: %d records\n", directory, partial_counter);
+    printf("\n====> %s: %d records\n", name, partial_counter);
 
     return TRUE; // to continue
 }
