@@ -22,7 +22,7 @@
 /***************************************************************************
  *              Constants
  ***************************************************************************/
-#define NAME        "treedb_list"
+#define APP_NAME    "treedb_list"
 #define DOC         "List messages of Treedb database."
 
 #define VERSION     __ghelpers_version__
@@ -82,7 +82,7 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state);
 struct arguments arguments;
 int total_counter = 0;
 int partial_counter = 0;
-const char *argp_program_version = NAME " " VERSION;
+const char *argp_program_version = APP_NAME " " VERSION;
 const char *argp_program_bug_address = SUPPORT;
 
 /* Program documentation. */
@@ -238,7 +238,8 @@ PRIVATE BOOL list_db_cb(
     int index               // index of file inside of directory, relative to 0
 )
 {
-    printf("  %s\n", name);
+    printf("  directory: %s\n", directory);
+    printf("  treedb   : %s\n", name);
     return TRUE; // to continue
 }
 
@@ -260,8 +261,8 @@ PRIVATE int list_databases(const char *path)
  *
  ***************************************************************************/
 PRIVATE int _list_messages(
-    char *path,
-    char *database,
+    char *path, // must contains the full path of tranger database
+    char *treedb_name, // must contains the treedb name
     char *topic,
     json_t *match_cond,
     int verbose)
@@ -275,51 +276,53 @@ PRIVATE int _list_messages(
     );
     json_t * tranger = tranger_startup(jn_tranger);
     if(!tranger) {
-        fprintf(stderr, "Can't startup tranger %s/%s\n\n", path, database);
+        fprintf(stderr, "Can't startup tranger %s\n\n", path);
         exit(-1);
     }
 
     /*-------------------------------*
      *  Open treedb
      *-------------------------------*/
-    treedb_open_db(
+    json_t *treedb = treedb_open_db(
         tranger,  // owned
-        database,
+        treedb_name,
         0, // jn_schema_sample
         "persistent"
     );
 
-    json_t *treedb = kw_get_subdict_value(tranger, "treedbs", database, 0, 0);
-    const char *topic_name; json_t *topic_data;
-    json_object_foreach(treedb, topic_name, topic_data) {
-        if(!empty_string(topic)) {
-            if(strcmp(topic, topic_name)!=0) {
-                continue;
-            }
-        }
-        json_t *node_list = treedb_list_nodes( // Return MUST be decref
-            tranger,
-            database,
-            topic_name,
-            0, // jn_ids,     // owned
-            0, // jn_filter   // owned
-            0, // TODO jn_options
-            0  // match_fn
-        );
-
-        // TODO
-        print_json2(topic_name, node_list);
-
-        total_counter += json_array_size(node_list);
-        partial_counter += json_array_size(node_list);
-
-        JSON_DECREF(node_list);
-    }
+//     json_t *treedb = kw_get_subdict_value(tranger, "treedbs", database, 0, 0);
+//     const char *topic_name; json_t *topic_data;
+//     json_object_foreach(treedb, topic_name, topic_data) {
+//         if(!empty_string(topic)) {
+//             if(strcmp(topic, topic_name)!=0) {
+//                 continue;
+//             }
+//         }
+//         json_t *node_list = treedb_list_nodes( // Return MUST be decref
+//             tranger,
+//             database,
+//             topic_name,
+//             0, // jn_ids,     // owned
+//             0, // jn_filter   // owned
+//             0, // TODO jn_options
+//             0  // match_fn
+//         );
+//
+//         // TODO
+//         print_json2(topic_name, node_list);
+//
+//         total_counter += json_array_size(node_list);
+//         partial_counter += json_array_size(node_list);
+//
+//         JSON_DECREF(node_list);
+//     }
 
     /*-------------------------------*
      *  Free resources
      *-------------------------------*/
-    treedb_close_db(tranger, database);
+    if(treedb) {
+        treedb_close_db(tranger, treedb_name);
+    }
     tranger_shutdown(tranger);
 
     return 0;
@@ -336,26 +339,32 @@ PRIVATE int list_messages(
     int verbose)
 {
     /*
-     *  Check if path contains all
+     *  Check if path is a tranger directory
      */
-    char bftemp[PATH_MAX];
-    if(!empty_string(database)) {
-        snprintf(bftemp, sizeof(bftemp), "%s%s%s",
-            path,
-            (path[strlen(path)-1]=='/')?"":"/",
-            database
-        );
-
-    } else {
-        snprintf(bftemp, sizeof(bftemp), "%s%s",
-            path,
-            (path[strlen(path)-1]=='/')?"":""
-        );
+    char path_tranger[PATH_MAX];
+    snprintf(path_tranger, sizeof(path_tranger), "%s", path);
+    if(!file_exists(path_tranger, "__timeranger__.json")) {
+        database = pop_last_segment(path_tranger);
+        if(!file_exists(path_tranger, "__timeranger__.json")) {
+            fprintf(stderr, "What Database?\n\n");
+            list_databases(path_tranger);
+            exit(-1);
+        }
     }
-    if(is_regular_file(bftemp)) {
-        database = pop_last_segment(bftemp); // pop *.treedb_desc.json
+
+    if(!is_directory(path_tranger)) {
+        fprintf(stderr, "Directory '%s' not found\n\n", path_tranger);
+        exit(-1);
+    }
+    if(empty_string(database)) {
+        fprintf(stderr, "What Database?\n\n");
+        list_databases(path_tranger);
+        exit(-1);
+    }
+
+    if(file_exists(path_tranger, database)) {
         return _list_messages(
-            bftemp,
+            path_tranger,
             database,
             topic,
             match_cond,
@@ -363,8 +372,20 @@ PRIVATE int list_messages(
         );
     }
 
+    char database_name[NAME_MAX];
+    snprintf(database_name, sizeof(database_name), "%s.treedb_schema.json", database);
+    if(file_exists(path_tranger, database_name)) {
+        return _list_messages(
+            path_tranger,
+            database_name,
+            topic,
+            match_cond,
+            verbose
+        );
+    }
+
     fprintf(stderr, "What Database?\n\n");
-    list_databases(path);
+    list_databases(path_tranger);
     exit(-1);
 }
 
@@ -384,6 +405,11 @@ PRIVATE BOOL list_recursive_db_cb(
     list_params_t *list_params = user_data;
     list_params_t list_params2 = *list_params;
 
+    char *p = strstr(name, ".treedb_schema.json");
+    if(p) {
+        *p = 0;
+    }
+
     snprintf(list_params2.path, sizeof(list_params2.path), "%s", directory);
     snprintf(list_params2.database, sizeof(list_params2.database), "%s", name);
 
@@ -396,10 +422,6 @@ PRIVATE BOOL list_recursive_db_cb(
         list_params2.verbose
     );
 
-    char *p = strstr(name, ".treedb_schema.json");
-    if(p) {
-        *p = 0;
-    }
     printf("\n====> %s: %d records\n", name, partial_counter);
 
     return TRUE; // to continue
@@ -459,29 +481,64 @@ int main(int argc, char *argv[])
      */
     argp_parse(&argp, argc, argv, 0, 0, &arguments);
 
+    /*-------------------------------------*
+     *  Your start code
+     *-------------------------------------*/
+    init_ghelpers_library(APP_NAME);
+    log_startup(
+        "test",             // application name
+        "1.0.0",            // applicacion version
+        "test_glogger"     // executable program, to can trace stack
+    );
+
+    /*------------------------------------------------*
+     *          Setup memory
+     *------------------------------------------------*/
+    #define MEM_MIN_BLOCK   512
     uint64_t MEM_MAX_SYSTEM_MEMORY = free_ram_in_kb() * 1024LL;
     MEM_MAX_SYSTEM_MEMORY /= 100LL;
     MEM_MAX_SYSTEM_MEMORY *= 90LL;  // Coge el 90% de la memoria
 
     uint64_t MEM_MAX_BLOCK = (MEM_MAX_SYSTEM_MEMORY / sizeof(md_record_t)) * sizeof(md_record_t);
-
     MEM_MAX_BLOCK = MIN(1*1024*1024*1024LL, MEM_MAX_BLOCK);  // 1*G max
 
-    gbmem_startup_system(
-        MEM_MAX_BLOCK,
-        MEM_MAX_SYSTEM_MEMORY
-    );
+    uint64_t MEM_SUPERBLOCK = MEM_MAX_BLOCK;
+
+    static uint32_t mem_list[] = {58, 0};
+    gbmem_trace_alloc_free(0, mem_list);
+
+    if(1) {
+        gbmem_startup(
+            MEM_MIN_BLOCK,
+            MEM_MAX_BLOCK,
+            MEM_SUPERBLOCK,
+            MEM_MAX_SYSTEM_MEMORY,
+            NULL,
+            0
+        );
+    } else {
+        gbmem_startup_system(
+            MEM_MAX_BLOCK,
+            MEM_MAX_SYSTEM_MEMORY
+        );
+    }
     json_set_alloc_funcs(
         gbmem_malloc,
         gbmem_free
     );
+    uv_replace_allocator(
+        gbmem_malloc,
+        gbmem_realloc,
+        gbmem_calloc,
+        gbmem_free
+    );
 
     log_startup(
-        NAME,       // application name
-        VERSION,    // applicacion version
-        NAME        // executable program, to can trace stack
+        APP_NAME,       // application name
+        VERSION,        // applicacion version
+        APP_NAME        // executable program, to can trace stack
     );
-    log_add_handler(NAME, "stdout", LOG_OPT_LOGGER, 0);
+    log_add_handler(APP_NAME, "stdout", LOG_OPT_LOGGER, 0);
 
 
     /*----------------------------------*
