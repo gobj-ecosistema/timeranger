@@ -290,39 +290,36 @@ PRIVATE int _list_messages(
         "persistent"
     );
 
-//     json_t *treedb = kw_get_subdict_value(tranger, "treedbs", database, 0, 0);
-//     const char *topic_name; json_t *topic_data;
-//     json_object_foreach(treedb, topic_name, topic_data) {
-//         if(!empty_string(topic)) {
-//             if(strcmp(topic, topic_name)!=0) {
-//                 continue;
-//             }
-//         }
-//         json_t *node_list = treedb_list_nodes( // Return MUST be decref
-//             tranger,
-//             database,
-//             topic_name,
-//             0, // jn_ids,     // owned
-//             0, // jn_filter   // owned
-//             0, // TODO jn_options
-//             0  // match_fn
-//         );
-//
-//         // TODO
-//         print_json2(topic_name, node_list);
-//
-//         total_counter += json_array_size(node_list);
-//         partial_counter += json_array_size(node_list);
-//
-//         JSON_DECREF(node_list);
-//     }
+    const char *topic_name; json_t *topic_data;
+    json_object_foreach(treedb, topic_name, topic_data) {
+        if(!empty_string(topic)) {
+            if(strcmp(topic, topic_name)!=0) {
+                continue;
+            }
+        }
+        json_t *node_list = treedb_list_nodes( // Return MUST be decref
+            tranger,
+            treedb_name,
+            topic_name,
+            0, // jn_ids,     // owned
+            0, // jn_filter   // owned
+            0, // TODO jn_options
+            0  // match_fn
+        );
+
+        // TODO
+        print_json2(topic_name, node_list);
+
+        total_counter += json_array_size(node_list);
+        partial_counter += json_array_size(node_list);
+
+        json_decref(node_list);
+    }
 
     /*-------------------------------*
      *  Free resources
      *-------------------------------*/
-    if(treedb) {
-        treedb_close_db(tranger, treedb_name);
-    }
+    treedb_close_db(tranger, treedb_name);
     tranger_shutdown(tranger);
 
     return 0;
