@@ -270,9 +270,10 @@ PRIVATE int _list_messages(
     /*-------------------------------*
      *  Startup TimeRanger
      *-------------------------------*/
-    json_t *jn_tranger = json_pack("{s:s, s:s}",
+    json_t *jn_tranger = json_pack("{s:s, s:b, s:i}",
         "path", path,
-        "database", ""
+        "master", 0,
+        "on_critical_error", 0
     );
     json_t * tranger = tranger_startup(jn_tranger);
     if(!tranger) {
@@ -501,7 +502,7 @@ int main(int argc, char *argv[])
 
     uint64_t MEM_SUPERBLOCK = MEM_MAX_BLOCK;
 
-    static uint32_t mem_list[] = {58, 0};
+    static uint32_t mem_list[] = {2037, 0};
     gbmem_trace_alloc_free(0, mem_list);
 
     if(1) {
