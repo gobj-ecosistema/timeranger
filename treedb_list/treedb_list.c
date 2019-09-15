@@ -103,7 +103,7 @@ static struct argp_option options[] = {
 // {"fields",              'f',    "FIELDS",           0,      "Print only this fields", 3},
 
 {0,                     0,      0,                  0,      "TreeDb options",       30},
-{"expand-nodes",        30,     0,                  0,      "Expand nodes.",         30},
+{"expand",              30,     0,                  0,      "Expand nodes.",         30},
 
 {0}
 };
