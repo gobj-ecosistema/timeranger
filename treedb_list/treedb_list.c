@@ -36,7 +36,9 @@ typedef struct {
     char path[256];
     char database[256];
     char topic[256];
-    json_t *match_cond;
+    json_t *jn_ids;
+    json_t *jn_filter;
+    json_t *jn_options;
     int verbose;
 } list_params_t;
 
@@ -58,17 +60,7 @@ struct arguments
     char *fields;
     int verbose;
 
-    char *user_flag_mask_set;
-    char *user_flag_mask_notset;
-
-    char *system_flag_mask_set;
-    char *system_flag_mask_notset;
-
-    char *key;
-    char *notkey;
-
-    char *expand_nodes;
-
+    int expand_nodes;
 };
 
 /***************************************************************************
@@ -108,18 +100,11 @@ static struct argp_option options[] = {
 {"mode",                'm',    "MODE",             0,      "Mode: form or table", 3},
 {"fields",              'f',    "FIELDS",           0,      "Print only this fields", 3},
 
-{0,                     0,      0,                  0,      "Search conditions", 4},
-{"user-flag-set",       9,      "MASK",             0,      "Mask of User Flag set.",   6},
-{"user-flag-not-set",   10,     "MASK",             0,      "Mask of User Flag not set.",6},
-
-{"system-flag-set",     13,     "MASK",             0,      "Mask of System Flag set.",   7},
-{"system-flag-not-set", 14,     "MASK",             0,      "Mask of System Flag not set.",7},
-
-{"key",                 21,     "KEY",              0,      "Key.",             9},
-{"not-key",             22,     "KEY",              0,      "Not key.",         9},
+// {0,                     0,      0,                  0,      "Search conditions", 4},
+// {"user-flag-set",       9,      "MASK",             0,      "Mask of User Flag set.",   4},
 
 {0,                     0,      0,                  0,      "TreeDb options",       30},
-{"expand-nodes",        30,     "LEVEL",            0,      "Expand nodes until LEVEL levels.",         30},
+{"expand-nodes",        30,     0,                  0,      "Expand nodes.",         30},
 
 {0}
 };
@@ -168,29 +153,8 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state)
         arguments->fields = arg;
         break;
 
-    case 9:
-        arguments->user_flag_mask_set = arg;
-        break;
-    case 10:
-        arguments->user_flag_mask_notset = arg;
-        break;
-
-    case 13:
-        arguments->system_flag_mask_set = arg;
-        break;
-    case 14:
-        arguments->system_flag_mask_notset = arg;
-        break;
-
-    case 21:
-        arguments->key = arg;
-        break;
-    case 22:
-        arguments->notkey = arg;
-        break;
-
     case 30:
-        arguments->expand_nodes = arg;
+        arguments->expand_nodes = 1;
         break;
 
     case ARGP_KEY_ARG:
@@ -264,7 +228,9 @@ PRIVATE int _list_messages(
     char *path, // must contains the full path of tranger database
     char *treedb_name, // must contains the treedb name
     char *topic,
-    json_t *match_cond,
+    json_t *jn_ids,
+    json_t *jn_filter,
+    json_t *jn_options,
     int verbose)
 {
     /*-------------------------------*
@@ -285,7 +251,7 @@ PRIVATE int _list_messages(
      *  Open treedb
      *-------------------------------*/
     json_t *treedb = treedb_open_db(
-        tranger,  // owned
+        tranger,
         treedb_name,
         0, // jn_schema_sample
         "persistent"
@@ -298,13 +264,17 @@ PRIVATE int _list_messages(
                 continue;
             }
         }
+        JSON_INCREF(jn_ids);
+        JSON_INCREF(jn_filter);
+        JSON_INCREF(jn_options);
+
         json_t *node_list = treedb_list_nodes( // Return MUST be decref
             tranger,
             treedb_name,
             topic_name,
-            0, // jn_ids,     // owned
-            0, // jn_filter   // owned
-            0, // TODO jn_options
+            jn_ids,
+            jn_filter,
+            jn_options,
             0  // match_fn
         );
 
@@ -333,7 +303,9 @@ PRIVATE int list_messages(
     char *path,
     char *database,
     char *topic,
-    json_t *match_cond,
+    json_t *jn_ids,
+    json_t *jn_filter,
+    json_t *jn_options,
     int verbose)
 {
     /*
@@ -365,7 +337,9 @@ PRIVATE int list_messages(
             path_tranger,
             database,
             topic,
-            match_cond,
+            jn_ids,
+            jn_filter,
+            jn_options,
             verbose
         );
     }
@@ -377,7 +351,9 @@ PRIVATE int list_messages(
             path_tranger,
             database_name,
             topic,
-            match_cond,
+            jn_ids,
+            jn_filter,
+            jn_options,
             verbose
         );
     }
@@ -416,7 +392,9 @@ PRIVATE BOOL list_recursive_db_cb(
         list_params2.path,
         list_params2.database,
         list_params2.topic,
-        list_params2.match_cond,
+        list_params2.jn_ids,
+        list_params2.jn_filter,
+        list_params2.jn_options,
         list_params2.verbose
     );
 
@@ -445,7 +423,9 @@ PRIVATE int list_recursive_msg(
     char *path,
     char *database,
     char *topic,
-    json_t *match_cond,
+    json_t *jn_ids,
+    json_t *jn_filter,
+    json_t *jn_options,
     int verbose)
 {
     list_params_t list_params;
@@ -458,7 +438,10 @@ PRIVATE int list_recursive_msg(
     if(!empty_string(topic)) {
         snprintf(list_params.topic, sizeof(list_params.topic), "%s", topic);
     }
-    list_params.match_cond = match_cond;
+    list_params.jn_ids = jn_ids;
+    list_params.jn_filter = jn_filter;
+    list_params.jn_options = jn_options;
+
     list_params.verbose = verbose;
 
     return list_recursive_databases(&list_params);
@@ -540,71 +523,30 @@ int main(int argc, char *argv[])
 
 
     /*----------------------------------*
-     *  Match conditions
+     *  Ids
      *----------------------------------*/
-    json_t *match_cond = json_object();
+    json_t *jn_ids = json_array(); // TODO
 
+    /*----------------------------------*
+     *  Filter
+     *----------------------------------*/
+    json_t *jn_filter = json_object(); // TODO
 
-    if(arguments.user_flag_mask_set) {
-        json_object_set_new(
-            match_cond,
-            "user_flag_mask_set",
-            json_integer(atol(arguments.user_flag_mask_set))
-        );
-    }
-    if(arguments.user_flag_mask_notset) {
-        json_object_set_new(
-            match_cond,
-            "user_flag_mask_notset",
-            json_integer(atol(arguments.user_flag_mask_notset))
-        );
-    }
-    if(arguments.system_flag_mask_set) {
-        json_object_set_new(
-            match_cond,
-            "system_flag_mask_set",
-            json_integer(atol(arguments.system_flag_mask_set))
-        );
-    }
-    if(arguments.system_flag_mask_notset) {
-        json_object_set_new(
-            match_cond,
-            "system_flag_mask_notset",
-            json_integer(atol(arguments.system_flag_mask_notset))
-        );
-    }
-    if(arguments.key) {
-        json_object_set_new(
-            match_cond,
-            "key",
-            json_string(arguments.key)
-        );
-    }
-    if(arguments.notkey) {
-        json_object_set_new(
-            match_cond,
-            "notkey",
-            json_string(arguments.notkey)
-        );
-    }
-
+    /*----------------------------------*
+     *  Options
+     *----------------------------------*/
+    json_t *jn_options = json_object();
     if(arguments.expand_nodes) {
         json_object_set_new(
-            match_cond,
+            jn_options,
             "expand",
             json_true()
         );
     }
 
-    if(json_object_size(match_cond)>0) {
-        json_object_set_new(match_cond, "only_md", json_true());
-    } else {
-        JSON_DECREF(match_cond);
-    }
-
-    /*
-     *  Do your work
-     */
+    /*------------------------*
+     *      Do your work
+     *------------------------*/
     struct timespec st, et;
     double dt;
 
@@ -619,7 +561,9 @@ int main(int argc, char *argv[])
             arguments.path,
             arguments.database,
             arguments.topic,
-            match_cond,
+            jn_ids,
+            jn_filter,
+            jn_options,
             arguments.verbose
         );
     } else {
@@ -627,11 +571,15 @@ int main(int argc, char *argv[])
             arguments.path,
             arguments.database,
             arguments.topic,
-            match_cond,
+            jn_ids,
+            jn_filter,
+            jn_options,
             arguments.verbose
         );
     }
-    JSON_DECREF(match_cond);
+    JSON_DECREF(jn_ids);
+    JSON_DECREF(jn_filter);
+    JSON_DECREF(jn_options);
 
     clock_gettime (CLOCK_MONOTONIC, &et);
 
