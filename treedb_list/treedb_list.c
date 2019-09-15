@@ -55,6 +55,7 @@ struct arguments
     char *path;
     char *database;
     char *topic;
+    char *id;
     int recursive;
     char *mode;
     char *fields;
@@ -93,15 +94,13 @@ static struct argp_option options[] = {
 {"path",                'a',    "PATH",             0,      "Path.",            2},
 {"database",            'b',    "DATABASE",         0,      "Database.",        2},
 {"topic",               'c',    "TOPIC",            0,      "Topic.",           2},
+{"ids",                 'i',    "ID",               0,      "Id or list of id's.",2},
 {"recursive",           'r',    0,                  0,      "List recursively.",  2},
 
-{0,                     0,      0,                  0,      "Presentation",     3},
-{"verbose",             'l',    "LEVEL",            0,      "Verbose level (0=total, 1=metadata, 2=metadata+path, 3=metadata+record)", 3},
-{"mode",                'm',    "MODE",             0,      "Mode: form or table", 3},
-{"fields",              'f',    "FIELDS",           0,      "Print only this fields", 3},
-
-// {0,                     0,      0,                  0,      "Search conditions", 4},
-// {"user-flag-set",       9,      "MASK",             0,      "Mask of User Flag set.",   4},
+// {0,                     0,      0,                  0,      "Presentation",     3},
+// {"verbose",             'l',    "LEVEL",            0,      "Verbose level (0=total, 1=metadata, 2=metadata+path, 3=metadata+record)", 3},
+// {"mode",                'm',    "MODE",             0,      "Mode: form or table", 3},
+// {"fields",              'f',    "FIELDS",           0,      "Print only this fields", 3},
 
 {0,                     0,      0,                  0,      "TreeDb options",       30},
 {"expand-nodes",        30,     0,                  0,      "Expand nodes.",         30},
@@ -137,6 +136,9 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state)
         break;
     case 'c':
         arguments->topic= arg;
+        break;
+    case 'i':
+        arguments->id= arg;
         break;
     case 'r':
         arguments->recursive = 1;
@@ -278,7 +280,6 @@ PRIVATE int _list_messages(
             0  // match_fn
         );
 
-        // TODO
         print_json2(topic_name, node_list);
 
         total_counter += json_array_size(node_list);
@@ -525,7 +526,15 @@ int main(int argc, char *argv[])
     /*----------------------------------*
      *  Ids
      *----------------------------------*/
-    json_t *jn_ids = json_array(); // TODO
+    json_t *jn_ids = json_array();
+    if(arguments.id) {
+        int list_size;
+        const char **ss = split2(arguments.id, ", ", &list_size);
+        for(int i=0; i<list_size; i++) {
+            json_array_append_new(jn_ids, json_string(ss[i]));
+        }
+        split_free2(ss);
+    }
 
     /*----------------------------------*
      *  Filter
