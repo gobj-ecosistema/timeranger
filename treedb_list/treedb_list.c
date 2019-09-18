@@ -545,10 +545,10 @@ int main(int argc, char *argv[])
      *  Options
      *----------------------------------*/
     json_t *jn_options = json_object();
-    if(arguments.expand_nodes) {
+    if(!arguments.expand_nodes) {
         json_object_set_new(
             jn_options,
-            "expand",
+            "collapsed",
             json_true()
         );
     }
