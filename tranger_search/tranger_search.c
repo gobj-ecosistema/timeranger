@@ -119,7 +119,7 @@ static struct argp_option options[] = {
 {"mode",                'm',    "MODE",             0,      "Mode: form or table", 3},
 {"fields",              'f',    "FIELDS",           0,      "Print only this fields", 3},
 
-{0,                     0,      0,                  0,      "Search conditions", 4},
+{0,                     0,      0,                  0,      "Search record conditions", 4},
 {"from-t",              1,      "TIME",             0,      "From time.",       4},
 {"to-t",                2,      "TIME",             0,      "To time.",         4},
 {"from-rowid",          4,      "TIME",             0,      "From rowid.",      5},
@@ -131,15 +131,16 @@ static struct argp_option options[] = {
 {"system-flag-set",     13,     "MASK",             0,      "Mask of System Flag set.",   7},
 {"system-flag-not-set", 14,     "MASK",             0,      "Mask of System Flag not set.",7},
 
-{"key",                 21,     "KEY",              0,      "Key.",             9},
-{"not-key",             22,     "KEY",              0,      "Not key.",         9},
+{"key",                 15,     "KEY",              0,      "Key.",             9},
+{"not-key",             16,     "KEY",              0,      "Not key.",         9},
 
-{"from-tm",             25,     "TIME",             0,      "From msg time.",       10},
-{"to-tm",               26,     "TIME",             0,      "To msg time.",         10},
+{"from-tm",             17,     "TIME",             0,      "From msg time.",       10},
+{"to-tm",               18,     "TIME",             0,      "To msg time.",         10},
 
-{"search-content-key",  30,     "CONTENT-KEY",      0,      "Content key where to search.", 11},
-{"search-content-filter", 31,   "CONTENT-FILTER",   0,      "Filter to apply to content (clear, base64,)", 11},
-{"search-content-text", 32,     "CONTENT-TEXT",     0,      "Text to search in content.", 11},
+{0,                     0,      0,                  0,      "Search content conditions", 11},
+{"search-content-key",  20,     "CONTENT-KEY",      0,      "Content key where to search.", 11},
+{"search-content-filter", 21,   "CONTENT-FILTER",   0,      "Filter to apply to content (clear, base64,)", 11},
+{"search-content-text", 22,     "CONTENT-TEXT",     0,      "Text to search in content.", 11},
 
 {0}
 };
@@ -216,27 +217,27 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state)
         arguments->system_flag_mask_notset = arg;
         break;
 
-    case 21:
+    case 15:
         arguments->key = arg;
         break;
-    case 22:
+    case 16:
         arguments->notkey = arg;
         break;
 
-    case 25: // from_tm
+    case 17: // from_tm
         arguments->from_tm = arg;
         break;
-    case 26: // to_tm
+    case 18: // to_tm
         arguments->to_tm = arg;
         break;
 
-    case 30: // search-content-key
+    case 20: // search-content-key
         arguments->search_content_key = arg;
         break;
-    case 31: // search-content-filter
+    case 21: // search-content-filter
         arguments->search_content_filter = arg;
         break;
-    case 32: // search-content-text
+    case 22: // search-content-text
         arguments->search_content_text = arg;
         break;
 
@@ -278,7 +279,7 @@ static inline double ts_diff2 (struct timespec start, struct timespec end)
 PRIVATE BOOL list_db_cb(
     void *user_data,
     wd_found_type type,     // type found
-    const char *fullpath,   // directory+filename found
+    char *fullpath,         // directory+filename found
     const char *directory,  // directory of found filename
     char *name,             // dname[255]
     int level,              // level of tree where file found
@@ -314,7 +315,7 @@ PRIVATE int list_databases(const char *path)
 PRIVATE BOOL list_topic_cb(
     void *user_data,
     wd_found_type type,     // type found
-    const char *fullpath,   // directory+filename found
+    char *fullpath,         // directory+filename found
     const char *directory,  // directory of found filename
     char *name,             // dname[255]
     int level,              // level of tree where file found
@@ -589,7 +590,7 @@ PRIVATE int list_messages(
 PRIVATE BOOL list_recursive_topic_cb(
     void *user_data,
     wd_found_type type,     // type found
-    const char *fullpath,   // directory+filename found
+    char *fullpath,         // directory+filename found
     const char *directory,  // directory of found filename
     char *name,             // dname[255]
     int level,              // level of tree where file found
@@ -644,7 +645,7 @@ PRIVATE int list_recursive_topics(list_params_t *list_params)
 PRIVATE BOOL list_recursive_db_cb(
     void *user_data,
     wd_found_type type,     // type found
-    const char *fullpath,   // directory+filename found
+    char *fullpath,         // directory+filename found
     const char *directory,  // directory of found filename
     char *name,             // dname[255]
     int level,              // level of tree where file found
@@ -747,7 +748,9 @@ int main(int argc, char *argv[])
     argp_parse(&argp, argc, argv, 0, 0, &arguments);
 
     if(empty_string(arguments.search_content_key)) {
-        printf("\nYou must input a key where search in his content\n");
+        printf("\nYou must input a key where search in his content"
+            " (--search-content-key option)\n\n"
+        );
         exit(-1);
     }
 

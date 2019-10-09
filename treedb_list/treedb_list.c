@@ -197,7 +197,7 @@ static inline double ts_diff2 (struct timespec start, struct timespec end)
 PRIVATE BOOL list_db_cb(
     void *user_data,
     wd_found_type type,     // type found
-    const char *fullpath,   // directory+filename found
+    char *fullpath,   // directory+filename found
     const char *directory,  // directory of found filename
     char *name,             // dname[255]
     int level,              // level of tree where file found
@@ -370,7 +370,7 @@ PRIVATE int list_messages(
 PRIVATE BOOL list_recursive_db_cb(
     void *user_data,
     wd_found_type type,     // type found
-    const char *fullpath,   // directory+filename found
+    char *fullpath,         // directory+filename found
     const char *directory,  // directory of found filename
     char *name,             // dname[255]
     int level,              // level of tree where file found

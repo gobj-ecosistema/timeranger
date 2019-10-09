@@ -1,9 +1,9 @@
 /****************************************************************************
- *          TRANGER_LIST.C
+ *          TRANGER_MIGRATE.C
  *
- *          List messages of tranger database
+ *          Utility for migrate json to json records in a timeranger database.
  *
- *          Copyright (c) 2018 Niyamaka.
+ *          Copyright (c) 2019 Niyamaka.
  *          All Rights Reserved.
  ****************************************************************************/
 #include <stdio.h>
@@ -17,13 +17,14 @@
 #include <unistd.h>
 #include <string.h>
 #include <time.h>
+#include <libgen.h>
 #include <ghelpers.h>
 
 /***************************************************************************
  *              Constants
  ***************************************************************************/
-#define NAME        "tranger_list"
-#define DOC         "List messages of TimeRanger database."
+#define NAME        "tranger_migrate"
+#define DOC         "Migrate json to json records in a TimeRanger database."
 
 #define VERSION     __ghelpers_version__
 #define SUPPORT     "<niyamaka at yuneta.io>"
@@ -32,15 +33,6 @@
 /***************************************************************************
  *              Structures
  ***************************************************************************/
-typedef struct {
-    char path[256];
-    char database[256];
-    char topic[256];
-    json_t *match_cond;
-    int verbose;
-} list_params_t;
-
-
 /*
  *  Used by main to communicate with parse_opt.
  */
@@ -76,17 +68,27 @@ struct arguments
     char *from_tm;
     char *to_tm;
 
+    char *change_pkey;
+    char *new_pkey;
 };
+
+typedef struct {
+    struct arguments *arguments;
+    json_t *match_cond;
+} list_params_t;
+
 
 /***************************************************************************
  *              Prototypes
  ***************************************************************************/
 static error_t parse_opt (int key, char *arg, struct argp_state *state);
+PRIVATE int list_topics(const char *path);
 
 /***************************************************************************
  *      Data
  ***************************************************************************/
 struct arguments arguments;
+int total_found = 0;
 int total_counter = 0;
 int partial_counter = 0;
 const char *argp_program_version = NAME " " VERSION;
@@ -105,13 +107,13 @@ static char args_doc[] = "";
 static struct argp_option options[] = {
 /*-name-----------------key-----arg-----------------flags---doc-----------------group */
 {0,                     0,      0,                  0,      "Database",         2},
-{"path",                'a',    "PATH",             0,      "Path.",            2},
-{"database",            'b',    "DATABASE",         0,      "Database.",        2},
-{"topic",               'c',    "TOPIC",            0,      "Topic.",           2},
+{"path",                'a',    "PATH",             0,      "Path of database/topic. Use this option or --database and --topic options",2},
+{"database",            'b',    "DATABASE",         0,      "Tranger database path.",2},
+{"topic",               'c',    "TOPIC",            0,      "Topic name.",      2},
 {"recursive",           'r',    0,                  0,      "List recursively.",  2},
 
 {0,                     0,      0,                  0,      "Presentation",     3},
-{"verbose",             'l',    "LEVEL",            0,      "Verbose level (0=total, 1=metadata, 2=metadata+path, 3=metadata+record)", 3},
+{"verbose",             'l',    "LEVEL",            0,      "Verbose level (0=total, 1=metadata, 2=metadata+path, 3=metadata+record.", 3},
 {"mode",                'm',    "MODE",             0,      "Mode: form or table", 3},
 {"fields",              'f',    "FIELDS",           0,      "Print only this fields", 3},
 
@@ -127,11 +129,15 @@ static struct argp_option options[] = {
 {"system-flag-set",     13,     "MASK",             0,      "Mask of System Flag set.",   7},
 {"system-flag-not-set", 14,     "MASK",             0,      "Mask of System Flag not set.",7},
 
-{"key",                 21,     "KEY",              0,      "Key.",             9},
-{"not-key",             22,     "KEY",              0,      "Not key.",         9},
+{"key",                 15,     "KEY",              0,      "Key.",             9},
+{"not-key",             16,     "KEY",              0,      "Not key.",         9},
 
-{"from-tm",             25,     "TIME",             0,      "From msg time.",       10},
-{"to-tm",               26,     "TIME",             0,      "To msg time.",         10},
+{"from-tm",             17,     "TIME",             0,      "From msg time.",       10},
+{"to-tm",               18,     "TIME",             0,      "To msg time.",         10},
+
+{0,                     0,      0,                  0,      "Migrate primary key", 11},
+{"change-pkey",         20,     "OLD-PKEY-NAME",    0,      "Name of old primary key", 11},
+{"new-pkey",            21,     "NEW-PKEY-NAME",    0,      "Name of new primary key", 11},
 
 {0}
 };
@@ -208,18 +214,25 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state)
         arguments->system_flag_mask_notset = arg;
         break;
 
-    case 21:
+    case 15:
         arguments->key = arg;
         break;
-    case 22:
+    case 16:
         arguments->notkey = arg;
         break;
 
-    case 25: // from_tm
+    case 17: // from_tm
         arguments->from_tm = arg;
         break;
-    case 26: // to_tm
+    case 18: // to_tm
         arguments->to_tm = arg;
+        break;
+
+    case 20: // OLD PKEY
+        arguments->change_pkey = arg;
+        break;
+    case 21: // NEW PKEY
+        arguments->new_pkey = arg;
         break;
 
     case ARGP_KEY_ARG:
@@ -267,18 +280,19 @@ PRIVATE BOOL list_db_cb(
     int index               // index of file inside of directory, relative to 0
 )
 {
-    char *p = strrchr(directory, '/');
+    char *p = strrchr(fullpath, '/');
     if(p) {
-        printf("  %s\n", p+1);
-    } else {
-        printf("  %s\n", directory);
+        *p = 0;
     }
+
+    printf("TimeRanger ==> %s\n", fullpath);
+    list_topics(fullpath);
+
     return TRUE; // to continue
 }
 
 PRIVATE int list_databases(const char *path)
 {
-    printf("Databases found:\n");
     walk_dir_tree(
         path,
         "__timeranger__.json",
@@ -305,20 +319,18 @@ PRIVATE BOOL list_topic_cb(
 {
     char *p = strrchr(directory, '/');
     if(p) {
-        printf("  %s\n", p+1);
+        printf("        %s\n", p+1);
     } else {
-        printf("  %s\n", directory);
+        printf("        %s\n", directory);
     }
     return TRUE; // to continue
 }
 
-PRIVATE int list_topics(const char *path, const char *database)
+PRIVATE int list_topics(const char *path)
 {
-    char temp[1024];
-    snprintf(temp, sizeof(temp), "%s/%s", path, database);
-    printf("Topics found:\n");
+    printf("    Topics:\n");
     walk_dir_tree(
-        temp,
+        path,
         "topic_desc.json",
         WD_RECURSIVE|WD_MATCH_REGULAR_FILE,
         list_topic_cb,
@@ -347,33 +359,47 @@ PRIVATE int load_record_callback(
 
     print_md1_record(tranger, topic, md_record, title, sizeof(title));
 
-    BOOL table_mode = FALSE;
-    if(!empty_string(arguments.mode) || !empty_string(arguments.fields)) {
-        verbose = 3;
+    BOOL table_mode = TRUE; // same logic as tranger_list.c
+    if(table_mode) {
         table_mode = TRUE;
-    }
-
-    if(verbose == 0) {
-        JSON_DECREF(jn_record);
-        return 0;
-    }
-    if(verbose == 1) {
-        printf("%s\n", title);
-        JSON_DECREF(jn_record);
-        return 0;
-    }
-    if(verbose == 2) {
-        print_md2_record(tranger, topic, md_record, title, sizeof(title));
-        printf("%s\n", title);
-        JSON_DECREF(jn_record);
-        return 0;
     }
 
     if(!jn_record) {
         jn_record = tranger_read_record_content(tranger, topic, md_record);
     }
 
-    if(table_mode) {
+    const char *search_content_key = kw_get_str(list, "match_cond`search_content_key", "", 0);
+    const char *search_content_filter = kw_get_str(list, "match_cond`search_content_filter", "", 0);
+    const char *search_content_text = kw_get_str(list, "match_cond`search_content_text", "", 0);
+
+    GBUFFER *gbuf_value = kw_get_gbuf_value(jn_record, search_content_key, 0, 0);
+    if(!gbuf_value) {
+        JSON_DECREF(jn_record);
+        return 0;
+    }
+    SWITCHS(search_content_filter) {
+        // Engine RPM - Engine Speed
+        CASES("base64")
+            {
+                gbuf_value = gbuf_decodebase64(gbuf_value);
+            }
+            break;
+        DEFAULTS
+            break;
+    } SWITCHS_END;
+
+    char *p = gbuf_cur_rd_pointer(gbuf_value);
+    if(strstr(p, search_content_text)) {
+        total_found++;
+
+        if(verbose == 1) {
+            printf("%s\n", title);
+        }
+        if(verbose == 2) {
+            print_md2_record(tranger, topic, md_record, title, sizeof(title));
+            printf("%s\n", title);
+        }
+
         if(!empty_string(arguments.fields)) {
             const char ** keys = 0;
             keys = split2(arguments.fields, ", ", 0);
@@ -385,7 +411,7 @@ PRIVATE int load_record_callback(
             jn_record = jn_record_with_fields;
 
         }
-        if(json_object_size(jn_record)>0) {
+        if(json_object_size(jn_record)>0 && verbose >= 3) {
             const char *key;
             json_t *jn_value;
             int len;
@@ -416,8 +442,6 @@ PRIVATE int load_record_callback(
                 printf("\n");
             }
             col = 0;
-
-            printf("%s ", title);
             json_object_foreach(jn_record, key, jn_value) {
                 char *s = json2uglystr(jn_value);
                 if(col == 0) {
@@ -430,10 +454,9 @@ PRIVATE int load_record_callback(
             }
             printf("\n");
         }
-
-    } else {
-        print_json2(title, jn_record);
     }
+
+    GBUF_DECREF(gbuf_value);
     JSON_DECREF(jn_record);
 
     return 0;
@@ -442,61 +465,60 @@ PRIVATE int load_record_callback(
 /***************************************************************************
  *
  ***************************************************************************/
-PRIVATE int _list_messages(
-    char *path,
-    char *database,
-    char *topic_name,
-    json_t *match_cond,
-    int verbose)
+PRIVATE int _migrate_messages(list_params_t *list_params)
 {
-    /*-------------------------------*
-     *  Startup TimeRanger
-     *-------------------------------*/
-    json_t *jn_tranger = json_pack("{s:s, s:s}",
-        "path", path,
-        "database", database
-    );
-    json_t * tranger = tranger_startup(jn_tranger);
-    if(!tranger) {
-        fprintf(stderr, "Can't startup tranger %s/%s\n\n", path, database);
-        exit(-1);
-    }
+    printf("Migrate:\n");
+    printf("  path: %s\n", list_params->arguments->path);
+    printf("  database: %s\n", list_params->arguments->database);
+    printf("  topic: %s\n", list_params->arguments->topic);
 
-    /*-------------------------------*
-     *  Open topic
-     *-------------------------------*/
-    json_t * htopic = tranger_open_topic(
-        tranger,
-        topic_name,
-        FALSE
-    );
-    if(!htopic) {
-        fprintf(stderr, "Can't open topic %s\n\n", topic_name);
-        list_topics(path, database);
-        exit(-1);
-    }
-
-    JSON_INCREF(match_cond);
-    json_t *jn_list = json_pack("{s:s, s:o, s:I, s:i}",
-        "topic_name", topic_name,
-        "match_cond", match_cond?match_cond:json_object(),
-        "load_record_callback", (json_int_t)(size_t)load_record_callback,
-        "verbose", verbose
-    );
-
-    json_t *tr_list = tranger_open_list(
-        tranger,
-        jn_list
-    );
-    if(tr_list) {
-        tranger_close_list(tranger, tr_list);
-    }
-
-    /*-------------------------------*
-     *  Free resources
-     *-------------------------------*/
-    tranger_close_topic(tranger, topic_name);
-    tranger_shutdown(tranger);
+//     /*-------------------------------*
+//      *  Startup TimeRanger
+//      *-------------------------------*/
+//     json_t *jn_tranger = json_pack("{s:s, s:s}",
+//         "path", path,
+//         "database", database
+//     );
+//     json_t * tranger = tranger_startup(jn_tranger);
+//     if(!tranger) {
+//         fprintf(stderr, "Can't startup tranger %s/%s\n\n", path, database);
+//         exit(-1);
+//     }
+//
+//     /*-------------------------------*
+//      *  Open topic
+//      *-------------------------------*/
+//     json_t * htopic = tranger_open_topic(
+//         tranger,
+//         topic_name,
+//         FALSE
+//     );
+//     if(!htopic) {
+//         fprintf(stderr, "Can't open topic %s\n\n", topic_name);
+//         list_topics(path, database);
+//         exit(-1);
+//     }
+//
+//     json_t *jn_list = json_pack("{s:s, s:o, s:I, s:i}",
+//         "topic_name", topic_name,
+//         "match_cond", match_cond?match_cond:json_object(),
+//         "load_record_callback", (json_int_t)(size_t)load_record_callback,
+//         "verbose", verbose
+//     );
+//
+//     json_t *tr_list = tranger_open_list(
+//         tranger,
+//         jn_list
+//     );
+//     if(tr_list) {
+//         tranger_close_list(tranger, tr_list);
+//     }
+//
+//     /*-------------------------------*
+//      *  Free resources
+//      *-------------------------------*/
+//     tranger_close_topic(tranger, topic_name);
+//     tranger_shutdown(tranger);
 
     return 0;
 }
@@ -504,117 +526,70 @@ PRIVATE int _list_messages(
 /***************************************************************************
  *
  ***************************************************************************/
-PRIVATE int list_messages(
-    char *path,
-    char *database,
-    char *topic,
-    json_t *match_cond,
-    int verbose)
+PRIVATE int migrate_topic_messages(list_params_t *list_params)
 {
+    char path_topic[PATH_MAX];
+
     /*
-     *  Check if path contains all
+     *  If path is empty then database and topic must be well defined.
+     *  If path is not empty then it will be splitted in database and topic
      */
-    char bftemp[PATH_MAX];
-    snprintf(bftemp, sizeof(bftemp), "%s%s%s",
-        path,
-        (path[strlen(path)-1]=='/')?"":"/",
-        "topic_desc.json"
-    );
-    if(is_regular_file(bftemp)) {
-        pop_last_segment(bftemp); // pop topic_desc.json
-        topic = pop_last_segment(bftemp);
-        database = pop_last_segment(bftemp);
-        if(!empty_string(topic)) {
-            return _list_messages(
-                bftemp,
-                database,
-                topic,
-                match_cond,
-                verbose
-            );
+    /*
+     *  Path filled
+     */
+    if(!empty_string(list_params->arguments->path)) {
+        build_path2(path_topic, sizeof(path_topic), list_params->arguments->path, "");
+        if(!file_exists(path_topic, "topic_desc.json")) {
+            if(!is_directory(path_topic)) {
+                fprintf(stderr, "Path not found: '%s'\n\n", path_topic);
+                exit(-1);
+            }
+            fprintf(stderr, "What Database/Topic?\n\nFound:\n\n");
+            list_databases(path_topic);
+            exit(-1);
         }
+        list_params->arguments->path = "";
+        list_params->arguments->topic = pop_last_segment(path_topic);
+        list_params->arguments->database = path_topic;
+        return _migrate_messages(list_params);
     }
 
-    if(empty_string(database)) {
-        fprintf(stderr, "What Database?\n\n");
-        list_databases(path);
+    /*
+     *  Database filled
+     */
+    if(!is_directory(list_params->arguments->database)) {
+        fprintf(stderr, "Path not found: '%s'\n\n", list_params->arguments->database);
+        exit(-1);
+    }
+    if(!file_exists(list_params->arguments->database, "__timeranger__.json")) {
+        fprintf(stderr, "Not a TimeRanger directory: %s\n\n", list_params->arguments->database);
         exit(-1);
     }
 
-    if(empty_string(topic)) {
-        fprintf(stderr, "What Topic?\n\n");
-        list_topics(path, database);
+    if(empty_string(list_params->arguments->topic)) {
+        fprintf(stderr, "Topic empty\n\n");
         exit(-1);
     }
-
-    return _list_messages(
-        path,
-        database,
-        topic,
-        match_cond,
-        verbose
+    build_path2(path_topic, sizeof(path_topic),
+        list_params->arguments->database,
+        list_params->arguments->topic
     );
+    if(!file_exists(path_topic, "topic_desc.json")) {
+        fprintf(stderr, "Topic not found: '%s'\n\n", list_params->arguments->topic);
+        fprintf(stderr, "Topics found:\n\n");
+        list_topics(list_params->arguments->database);
+        exit(-1);
+    }
+    list_params->arguments->path = "";
+    list_params->arguments->topic = pop_last_segment(path_topic);
+    list_params->arguments->database = path_topic;
+    return _migrate_messages(list_params);
 }
 
 /***************************************************************************
  *
  ***************************************************************************/
-PRIVATE BOOL list_recursive_topic_cb(
-    void *user_data,
-    wd_found_type type,     // type found
-    char *fullpath,   // directory+filename found
-    const char *directory,  // directory of found filename
-    char *name,             // dname[255]
-    int level,              // level of tree where file found
-    int index               // index of file inside of directory, relative to 0
-)
-{
-    list_params_t *list_params = user_data;
-    list_params_t list_params2 = *list_params;
-
-    char *p = strrchr(directory, '/');
-    if(p) {
-        snprintf(list_params2.topic, sizeof(list_params2.topic), "%s", p+1);
-    } else {
-        snprintf(list_params2.topic, sizeof(list_params2.topic), "%s", directory);
-    }
-    partial_counter = 0;
-    _list_messages(
-        list_params2.path,
-        list_params2.database,
-        list_params2.topic,
-        list_params2.match_cond,
-        list_params2.verbose
-    );
-    printf("\n====> %s: %d records\n", directory, partial_counter);
-
-    return TRUE; // to continue
-}
-
-PRIVATE int list_recursive_topics(list_params_t *list_params)
-{
-    char temp[1*1024];
-    snprintf(temp, sizeof(temp), "%s%s%s",
-        list_params->path,
-        list_params->path[strlen(list_params->path)-1]=='/'?"":"/",
-        list_params->database
-    );
-
-    walk_dir_tree(
-        temp,
-        "topic_desc.json",
-        WD_RECURSIVE|WD_MATCH_REGULAR_FILE,
-        list_recursive_topic_cb,
-        list_params
-    );
-
-    return 0;
-}
-
-/***************************************************************************
- *
- ***************************************************************************/
-PRIVATE BOOL list_recursive_db_cb(
+PRIVATE BOOL migrate_recursive_topic_cb(
     void *user_data,
     wd_found_type type,     // type found
     char *fullpath,         // directory+filename found
@@ -625,34 +600,30 @@ PRIVATE BOOL list_recursive_db_cb(
 )
 {
     list_params_t *list_params = user_data;
-    list_params_t list_params2 = *list_params;
 
-    snprintf(list_params2.path, sizeof(list_params2.path), "%s", directory);
+    partial_counter = 0;
+    pop_last_segment(fullpath);
+    list_params->arguments->path = "";
+    list_params->arguments->topic = pop_last_segment(fullpath);
+    list_params->arguments->database = fullpath;
+    _migrate_messages(list_params);
 
-    if(empty_string(list_params2.topic)) {
-        list_recursive_topics(&list_params2);
-    } else {
-        partial_counter = 0;
-        _list_messages(
-            list_params2.path,
-            list_params2.database,
-            list_params2.topic,
-            list_params2.match_cond,
-            list_params2.verbose
-        );
-        printf("\n====> %s: %d records\n", directory, partial_counter);
-    }
+    printf("\n====> %s %s: %d records\n",
+        list_params->arguments->database,
+        list_params->arguments->topic,
+        partial_counter
+    );
 
     return TRUE; // to continue
 }
 
-PRIVATE int list_recursive_databases(list_params_t *list_params)
+PRIVATE int migrate_recursive_topics(list_params_t *list_params)
 {
     walk_dir_tree(
-        list_params->path,
-        "__timeranger__.json",
+        list_params->arguments->database,
+        "topic_desc.json",
         WD_RECURSIVE|WD_MATCH_REGULAR_FILE,
-        list_recursive_db_cb,
+        migrate_recursive_topic_cb,
         list_params
     );
 
@@ -662,41 +633,54 @@ PRIVATE int list_recursive_databases(list_params_t *list_params)
 /***************************************************************************
  *
  ***************************************************************************/
-PRIVATE int list_recursive_messages(
-    char *path,
-    char *database,
-    char *topic,
-    json_t *match_cond,
-    int verbose)
+PRIVATE int migrate_recursive_topic_messages(list_params_t *list_params)
 {
-    list_params_t list_params;
-    memset(&list_params, 0, sizeof(list_params));
+    char path_tranger[PATH_MAX];
 
-    snprintf(list_params.path, sizeof(list_params.path), "%s", path);
-    if(database) {
-        snprintf(list_params.database, sizeof(list_params.database), "%s", database);
+    /*
+     *  If path is empty then database and topic must be well defined.
+     *  If path is not empty then it will be splitted in database and topic
+     */
+    /*
+     *  Path filled
+     */
+    if(!empty_string(list_params->arguments->path)) {
+        build_path2(path_tranger, sizeof(path_tranger), list_params->arguments->path, "");
+        if(!file_exists(path_tranger, "__timeranger__.json")) {
+            if(!is_directory(path_tranger)) {
+                fprintf(stderr, "Path not found: '%s'\n\n", path_tranger);
+                exit(-1);
+            }
+            fprintf(stderr, "What Database?\n\nFound:\n\n");
+            list_databases(path_tranger);
+            exit(-1);
+        }
+        list_params->arguments->path = "";
+        list_params->arguments->topic = "";
+        list_params->arguments->database = path_tranger;
+        return migrate_recursive_topics(list_params);
     }
-    if(topic) {
-        snprintf(list_params.topic, sizeof(list_params.topic), "%s", topic);
-    }
-    list_params.match_cond = match_cond;
-    list_params.verbose = verbose;
 
-    if(empty_string(database)) {
-        return list_recursive_databases(&list_params);
+    /*
+     *  Database filled
+     */
+    if(!is_directory(list_params->arguments->database)) {
+        fprintf(stderr, "Path not found: '%s'\n\n", list_params->arguments->database);
+        exit(-1);
+    }
+    if(!file_exists(list_params->arguments->database, "__timeranger__.json")) {
+        fprintf(stderr, "Not a TimeRanger directory: %s\n\n", list_params->arguments->database);
+        exit(-1);
     }
 
-    if(empty_string(topic)) {
-        return list_recursive_topics(&list_params);
-    }
-
-    return list_messages(
-        path,
-        database,
-        topic,
-        match_cond,
-        verbose
+    build_path2(path_tranger, sizeof(path_tranger),
+        list_params->arguments->database,
+        ""
     );
+    list_params->arguments->path = "";
+    list_params->arguments->topic = "";
+    list_params->arguments->database = path_tranger;
+    return migrate_recursive_topics(list_params);
 }
 
 /***************************************************************************
@@ -835,8 +819,16 @@ int main(int argc, char *argv[])
         );
     }
 
+    if(arguments.change_pkey) {
+        json_object_set_new(
+            match_cond,
+            "change_pkey",
+            json_string(arguments.change_pkey)
+        );
+    }
+
     if(json_object_size(match_cond)>0) {
-        json_object_set_new(match_cond, "only_md", json_true());
+        ;
     } else {
         JSON_DECREF(match_cond);
     }
@@ -849,28 +841,22 @@ int main(int argc, char *argv[])
 
     clock_gettime (CLOCK_MONOTONIC, &st);
 
-    if(empty_string(arguments.path)) {
+    if(empty_string(arguments.path) && empty_string(arguments.database)) {
         fprintf(stderr, "What TimeRanger path?\n");
+        fprintf(stderr, "You must supply --path or --database option\n\n");
         exit(-1);
     }
+
+    list_params_t list_params;
+    memset(&list_params, 0, sizeof(list_params));
+    list_params.arguments = &arguments;
+    list_params.match_cond = match_cond;
+
     if(arguments.recursive) {
-        list_recursive_messages(
-            arguments.path,
-            arguments.database,
-            arguments.topic,
-            match_cond,
-            arguments.verbose
-        );
+        migrate_recursive_topic_messages(&list_params);
     } else {
-        list_messages(
-            arguments.path,
-            arguments.database,
-            arguments.topic,
-            match_cond,
-            arguments.verbose
-        );
+        migrate_topic_messages(&list_params);
     }
-    JSON_DECREF(match_cond);
 
     clock_gettime (CLOCK_MONOTONIC, &et);
 
@@ -880,7 +866,8 @@ int main(int argc, char *argv[])
     dt = ts_diff2(st, et);
 
     setlocale(LC_ALL, "");
-    printf("\n====> Total: %'d records; %'f seconds; %'lu op/sec\n\n",
+    printf("\n====> Migrated %'d records in total of %'d;  %'f seconds; %'lu op/sec\n\n",
+        total_found,
         total_counter,
         dt,
         (unsigned long)(((double)total_counter)/dt)
