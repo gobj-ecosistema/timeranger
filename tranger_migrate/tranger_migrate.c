@@ -77,7 +77,6 @@ typedef struct {
     json_t *match_cond;
 } list_params_t;
 
-
 /***************************************************************************
  *              Prototypes
  ***************************************************************************/
@@ -107,8 +106,8 @@ static char args_doc[] = "";
 static struct argp_option options[] = {
 /*-name-----------------key-----arg-----------------flags---doc-----------------group */
 {0,                     0,      0,                  0,      "Database",         2},
-{"path",                'a',    "PATH",             0,      "Path of database/topic. Use this option or --database and --topic options",2},
-{"database",            'b',    "DATABASE",         0,      "Tranger database path.",2},
+{"path",                'a',    "PATH",             0,      "Path of database/topic.",2},
+{"database",            'b',    "DATABASE",         0,      "Tranger database name.",2},
 {"topic",               'c',    "TOPIC",            0,      "Topic name.",      2},
 {"recursive",           'r',    0,                  0,      "List recursively.",  2},
 
@@ -284,9 +283,12 @@ PRIVATE BOOL list_db_cb(
     if(p) {
         *p = 0;
     }
-
-    printf("TimeRanger ==> %s\n", fullpath);
-    list_topics(fullpath);
+    char topic_path[PATH_MAX];
+    snprintf(topic_path, sizeof(topic_path), "%s", fullpath);
+    printf("TimeRanger ==> '%s'\n", fullpath);
+    printf("  TimeRanger database: '%s'\n", pop_last_segment(fullpath));
+    printf("  Path: '%s'\n", fullpath);
+    list_topics(topic_path);
 
     return TRUE; // to continue
 }
@@ -530,59 +532,24 @@ PRIVATE int migrate_topic_messages(list_params_t *list_params)
 {
     char path_topic[PATH_MAX];
 
-    /*
-     *  If path is empty then database and topic must be well defined.
-     *  If path is not empty then it will be splitted in database and topic
-     */
-    /*
-     *  Path filled
-     */
-    if(!empty_string(list_params->arguments->path)) {
-        build_path2(path_topic, sizeof(path_topic), list_params->arguments->path, "");
-        if(!file_exists(path_topic, "topic_desc.json")) {
-            if(!is_directory(path_topic)) {
-                fprintf(stderr, "Path not found: '%s'\n\n", path_topic);
-                exit(-1);
-            }
-            fprintf(stderr, "What Database/Topic?\n\nFound:\n\n");
-            list_databases(path_topic);
-            exit(-1);
-        }
-        list_params->arguments->path = "";
-        list_params->arguments->topic = pop_last_segment(path_topic);
-        list_params->arguments->database = path_topic;
-        return _migrate_messages(list_params);
-    }
-
-    /*
-     *  Database filled
-     */
-    if(!is_directory(list_params->arguments->database)) {
-        fprintf(stderr, "Path not found: '%s'\n\n", list_params->arguments->database);
-        exit(-1);
-    }
-    if(!file_exists(list_params->arguments->database, "__timeranger__.json")) {
-        fprintf(stderr, "Not a TimeRanger directory: %s\n\n", list_params->arguments->database);
-        exit(-1);
-    }
-
-    if(empty_string(list_params->arguments->topic)) {
-        fprintf(stderr, "Topic empty\n\n");
-        exit(-1);
-    }
-    build_path2(path_topic, sizeof(path_topic),
+    build_path3(path_topic, sizeof(path_topic),
+        list_params->arguments->path,
         list_params->arguments->database,
         list_params->arguments->topic
     );
+
     if(!file_exists(path_topic, "topic_desc.json")) {
-        fprintf(stderr, "Topic not found: '%s'\n\n", list_params->arguments->topic);
-        fprintf(stderr, "Topics found:\n\n");
-        list_topics(list_params->arguments->database);
+        if(!is_directory(path_topic)) {
+            fprintf(stderr, "Path not found: '%s'\n\n", path_topic);
+            exit(-1);
+        }
+        fprintf(stderr, "What Database/Topic?\n\nFound:\n\n");
+        list_databases(list_params->arguments->path);
         exit(-1);
     }
-    list_params->arguments->path = "";
     list_params->arguments->topic = pop_last_segment(path_topic);
-    list_params->arguments->database = path_topic;
+    list_params->arguments->database = pop_last_segment(path_topic);
+    list_params->arguments->path = path_topic;
     return _migrate_messages(list_params);
 }
 
@@ -603,9 +570,9 @@ PRIVATE BOOL migrate_recursive_topic_cb(
 
     partial_counter = 0;
     pop_last_segment(fullpath);
-    list_params->arguments->path = "";
     list_params->arguments->topic = pop_last_segment(fullpath);
-    list_params->arguments->database = fullpath;
+    list_params->arguments->database = pop_last_segment(fullpath);
+    list_params->arguments->path = fullpath;
     _migrate_messages(list_params);
 
     printf("\n====> %s %s: %d records\n",
@@ -620,7 +587,7 @@ PRIVATE BOOL migrate_recursive_topic_cb(
 PRIVATE int migrate_recursive_topics(list_params_t *list_params)
 {
     walk_dir_tree(
-        list_params->arguments->database,
+        list_params->arguments->path,
         "topic_desc.json",
         WD_RECURSIVE|WD_MATCH_REGULAR_FILE,
         migrate_recursive_topic_cb,
@@ -637,49 +604,31 @@ PRIVATE int migrate_recursive_topic_messages(list_params_t *list_params)
 {
     char path_tranger[PATH_MAX];
 
-    /*
-     *  If path is empty then database and topic must be well defined.
-     *  If path is not empty then it will be splitted in database and topic
-     */
-    /*
-     *  Path filled
-     */
-    if(!empty_string(list_params->arguments->path)) {
-        build_path2(path_tranger, sizeof(path_tranger), list_params->arguments->path, "");
-        if(!file_exists(path_tranger, "__timeranger__.json")) {
-            if(!is_directory(path_tranger)) {
-                fprintf(stderr, "Path not found: '%s'\n\n", path_tranger);
-                exit(-1);
-            }
-            fprintf(stderr, "What Database?\n\nFound:\n\n");
-            list_databases(path_tranger);
+    build_path2(path_tranger, sizeof(path_tranger),
+        list_params->arguments->path,
+        list_params->arguments->database
+    );
+
+    if(!file_exists(path_tranger, "__timeranger__.json")) {
+        if(!is_directory(path_tranger)) {
+            fprintf(stderr, "Path not found: '%s'\n\n", path_tranger);
             exit(-1);
         }
-        list_params->arguments->path = "";
-        list_params->arguments->topic = "";
-        list_params->arguments->database = path_tranger;
-        return migrate_recursive_topics(list_params);
-    }
+        if(file_exists(path_tranger, "topic_desc.json")) {
+            list_params->arguments->topic = pop_last_segment(path_tranger);
+            list_params->arguments->database = pop_last_segment(path_tranger);
+            list_params->arguments->path = path_tranger;
+            return _migrate_messages(list_params);
+        }
 
-    /*
-     *  Database filled
-     */
-    if(!is_directory(list_params->arguments->database)) {
-        fprintf(stderr, "Path not found: '%s'\n\n", list_params->arguments->database);
-        exit(-1);
-    }
-    if(!file_exists(list_params->arguments->database, "__timeranger__.json")) {
-        fprintf(stderr, "Not a TimeRanger directory: %s\n\n", list_params->arguments->database);
+        fprintf(stderr, "What Database?\n\nFound:\n\n");
+        list_databases(list_params->arguments->path);
         exit(-1);
     }
 
-    build_path2(path_tranger, sizeof(path_tranger),
-        list_params->arguments->database,
-        ""
-    );
-    list_params->arguments->path = "";
     list_params->arguments->topic = "";
-    list_params->arguments->database = path_tranger;
+    list_params->arguments->database = "";
+    list_params->arguments->path = path_tranger;
     return migrate_recursive_topics(list_params);
 }
 
@@ -841,9 +790,9 @@ int main(int argc, char *argv[])
 
     clock_gettime (CLOCK_MONOTONIC, &st);
 
-    if(empty_string(arguments.path) && empty_string(arguments.database)) {
+    if(empty_string(arguments.path)) {
         fprintf(stderr, "What TimeRanger path?\n");
-        fprintf(stderr, "You must supply --path or --database option\n\n");
+        fprintf(stderr, "You must supply --path\n\n");
         exit(-1);
     }
 
@@ -857,6 +806,8 @@ int main(int argc, char *argv[])
     } else {
         migrate_topic_messages(&list_params);
     }
+
+    JSON_DECREF(match_cond);
 
     clock_gettime (CLOCK_MONOTONIC, &et);
 
