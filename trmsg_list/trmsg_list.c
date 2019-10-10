@@ -32,15 +32,6 @@
 /***************************************************************************
  *              Structures
  ***************************************************************************/
-typedef struct {
-    char path[256];
-    char database[256];
-    char topic[256];
-    json_t *match_cond;
-    int verbose;
-} list_params_t;
-
-
 /*
  *  Used by main to communicate with parse_opt.
  */
@@ -78,10 +69,16 @@ struct arguments
 
 };
 
+typedef struct {
+    struct arguments *arguments;
+    json_t *match_cond;
+} list_params_t;
+
 /***************************************************************************
  *              Prototypes
  ***************************************************************************/
 static error_t parse_opt (int key, char *arg, struct argp_state *state);
+PRIVATE int list_topics(const char *path);
 
 /***************************************************************************
  *      Data
@@ -105,9 +102,9 @@ static char args_doc[] = "";
 static struct argp_option options[] = {
 /*-name-----------------key-----arg-----------------flags---doc-----------------group */
 {0,                     0,      0,                  0,      "Database",         2},
-{"path",                'a',    "PATH",             0,      "Path.",            2},
-{"database",            'b',    "DATABASE",         0,      "Database.",        2},
-{"topic",               'c',    "TOPIC",            0,      "Topic.",           2},
+{"path",                'a',    "PATH",             0,      "Path of database/topic.",2},
+{"database",            'b',    "DATABASE",         0,      "Tranger database name.",2},
+{"topic",               'c',    "TOPIC",            0,      "Topic name.",      2},
 {"recursive",           'r',    0,                  0,      "List recursively.",  2},
 
 {0,                     0,      0,                  0,      "Presentation",     3},
@@ -267,18 +264,22 @@ PRIVATE BOOL list_db_cb(
     int index               // index of file inside of directory, relative to 0
 )
 {
-    char *p = strrchr(directory, '/');
+    char *p = strrchr(fullpath, '/');
     if(p) {
-        printf("  %s\n", p+1);
-    } else {
-        printf("  %s\n", directory);
+        *p = 0;
     }
+    char topic_path[PATH_MAX];
+    snprintf(topic_path, sizeof(topic_path), "%s", fullpath);
+    printf("TimeRanger ==> '%s'\n", fullpath);
+    printf("  TimeRanger database: '%s'\n", pop_last_segment(fullpath));
+    printf("  Path: '%s'\n", fullpath);
+    list_topics(topic_path);
+
     return TRUE; // to continue
 }
 
 PRIVATE int list_databases(const char *path)
 {
-    printf("Databases found:\n");
     walk_dir_tree(
         path,
         "__timeranger__.json",
@@ -305,20 +306,18 @@ PRIVATE BOOL list_topic_cb(
 {
     char *p = strrchr(directory, '/');
     if(p) {
-        printf("  %s\n", p+1);
+        printf("        %s\n", p+1);
     } else {
-        printf("  %s\n", directory);
+        printf("        %s\n", directory);
     }
     return TRUE; // to continue
 }
 
-PRIVATE int list_topics(const char *path, const char *database)
+PRIVATE int list_topics(const char *path)
 {
-    char temp[1024];
-    snprintf(temp, sizeof(temp), "%s/%s", path, database);
-    printf("Topics found:\n");
+    printf("    Topics:\n");
     walk_dir_tree(
-        temp,
+        path,
         "topic_desc.json",
         WD_RECURSIVE|WD_MATCH_REGULAR_FILE,
         list_topic_cb,
@@ -514,13 +513,14 @@ PRIVATE int list_instances_callback(
 /***************************************************************************
  *
  ***************************************************************************/
-PRIVATE int _list_messages(
-    char *path,
-    char *database,
-    char *topic_name,
-    json_t *jn_filter,
-    int verbose)
+PRIVATE int _list_messages(list_params_t *list_params)
 {
+    char *path = list_params->arguments->path;
+    char *database = list_params->arguments->database;
+    char *topic_name = list_params->arguments->topic;
+    int verbose = list_params->arguments->verbose;
+    json_t *match_cond = list_params->match_cond;
+
     /*-------------------------------*
      *  Startup TrTb
      *-------------------------------*/
@@ -537,11 +537,11 @@ PRIVATE int _list_messages(
     /*-------------------------------*
      *  Open topic
      *-------------------------------*/
-    JSON_INCREF(jn_filter);
+    JSON_INCREF(match_cond);
     json_t *list = trmsg_open_list(
         tranger,
         topic_name,
-        jn_filter
+        match_cond
     );
     if(list) {
         kw_set_dict_value(list, "verbose", json_integer(verbose));
@@ -577,56 +577,29 @@ PRIVATE int _list_messages(
 /***************************************************************************
  *
  ***************************************************************************/
-PRIVATE int list_messages(
-    char *path,
-    char *database,
-    char *topic,
-    json_t *match_cond,
-    int verbose)
+PRIVATE int list_topic_messages(list_params_t *list_params)
 {
-    /*
-     *  Check if path contains all
-     */
-    char bftemp[PATH_MAX];
-    snprintf(bftemp, sizeof(bftemp), "%s%s%s",
-        path,
-        (path[strlen(path)-1]=='/')?"":"/",
-        "topic_desc.json"
+    char path_topic[PATH_MAX];
+
+    build_path3(path_topic, sizeof(path_topic),
+        list_params->arguments->path,
+        list_params->arguments->database,
+        list_params->arguments->topic
     );
-    if(is_regular_file(bftemp)) {
-        pop_last_segment(bftemp); // pop topic_desc.json
-        topic = pop_last_segment(bftemp);
-        database = pop_last_segment(bftemp);
-        if(!empty_string(topic)) {
-            return _list_messages(
-                bftemp,
-                database,
-                topic,
-                match_cond,
-                verbose
-            );
+
+    if(!file_exists(path_topic, "topic_desc.json")) {
+        if(!is_directory(path_topic)) {
+            fprintf(stderr, "Path not found: '%s'\n\n", path_topic);
+            exit(-1);
         }
-    }
-
-    if(empty_string(database)) {
-        fprintf(stderr, "What Database?\n\n");
-        list_databases(path);
+        fprintf(stderr, "What Database/Topic?\n\nFound:\n\n");
+        list_databases(list_params->arguments->path);
         exit(-1);
     }
-
-    if(empty_string(topic)) {
-        fprintf(stderr, "What Topic?\n\n");
-        list_topics(path, database);
-        exit(-1);
-    }
-
-    return _list_messages(
-        path,
-        database,
-        topic,
-        match_cond,
-        verbose
-    );
+    list_params->arguments->topic = pop_last_segment(path_topic);
+    list_params->arguments->database = pop_last_segment(path_topic);
+    list_params->arguments->path = path_topic;
+    return _list_messages(list_params);
 }
 
 /***************************************************************************
@@ -643,38 +616,27 @@ PRIVATE BOOL list_recursive_topic_cb(
 )
 {
     list_params_t *list_params = user_data;
-    list_params_t list_params2 = *list_params;
 
-    char *p = strrchr(directory, '/');
-    if(p) {
-        snprintf(list_params2.topic, sizeof(list_params2.topic), "%s", p+1);
-    } else {
-        snprintf(list_params2.topic, sizeof(list_params2.topic), "%s", directory);
-    }
     partial_counter = 0;
-    _list_messages(
-        list_params2.path,
-        list_params2.database,
-        list_params2.topic,
-        list_params2.match_cond,
-        list_params2.verbose
+    pop_last_segment(fullpath);
+    list_params->arguments->topic = pop_last_segment(fullpath);
+    list_params->arguments->database = pop_last_segment(fullpath);
+    list_params->arguments->path = fullpath;
+    _list_messages(list_params);
+
+    printf("\n====> %s %s: %d records\n",
+        list_params->arguments->database,
+        list_params->arguments->topic,
+        partial_counter
     );
-    printf("\n====> %s: %d records\n", directory, partial_counter);
 
     return TRUE; // to continue
 }
 
 PRIVATE int list_recursive_topics(list_params_t *list_params)
 {
-    char temp[1*1024];
-    snprintf(temp, sizeof(temp), "%s%s%s",
-        list_params->path,
-        list_params->path[strlen(list_params->path)-1]=='/'?"":"/",
-        list_params->database
-    );
-
     walk_dir_tree(
-        temp,
+        list_params->arguments->path,
         "topic_desc.json",
         WD_RECURSIVE|WD_MATCH_REGULAR_FILE,
         list_recursive_topic_cb,
@@ -687,89 +649,36 @@ PRIVATE int list_recursive_topics(list_params_t *list_params)
 /***************************************************************************
  *
  ***************************************************************************/
-PRIVATE BOOL list_recursive_db_cb(
-    void *user_data,
-    wd_found_type type,     // type found
-    char *fullpath,         // directory+filename found
-    const char *directory,  // directory of found filename
-    char *name,             // dname[255]
-    int level,              // level of tree where file found
-    int index               // index of file inside of directory, relative to 0
-)
+PRIVATE int list_recursive_topic_messages(list_params_t *list_params)
 {
-    list_params_t *list_params = user_data;
-    list_params_t list_params2 = *list_params;
+    char path_tranger[PATH_MAX];
 
-    snprintf(list_params2.path, sizeof(list_params2.path), "%s", directory);
-
-    if(empty_string(list_params2.topic)) {
-        list_recursive_topics(&list_params2);
-    } else {
-        partial_counter = 0;
-        _list_messages(
-            list_params2.path,
-            list_params2.database,
-            list_params2.topic,
-            list_params2.match_cond,
-            list_params2.verbose
-        );
-        printf("\n====> %s: %d records\n", directory, partial_counter);
-    }
-
-    return TRUE; // to continue
-}
-
-PRIVATE int list_recursive_databases(list_params_t *list_params)
-{
-    walk_dir_tree(
-        list_params->path,
-        "__timeranger__.json",
-        WD_RECURSIVE|WD_MATCH_REGULAR_FILE,
-        list_recursive_db_cb,
-        list_params
+    build_path2(path_tranger, sizeof(path_tranger),
+        list_params->arguments->path,
+        list_params->arguments->database
     );
 
-    return 0;
-}
+    if(!file_exists(path_tranger, "__timeranger__.json")) {
+        if(!is_directory(path_tranger)) {
+            fprintf(stderr, "Path not found: '%s'\n\n", path_tranger);
+            exit(-1);
+        }
+        if(file_exists(path_tranger, "topic_desc.json")) {
+            list_params->arguments->topic = pop_last_segment(path_tranger);
+            list_params->arguments->database = pop_last_segment(path_tranger);
+            list_params->arguments->path = path_tranger;
+            return _list_messages(list_params);
+        }
 
-/***************************************************************************
- *
- ***************************************************************************/
-PRIVATE int list_recursive_gps_msg(
-    char *path,
-    char *database,
-    char *topic,
-    json_t *match_cond,
-    int verbose)
-{
-    list_params_t list_params;
-    memset(&list_params, 0, sizeof(list_params));
-
-    snprintf(list_params.path, sizeof(list_params.path), "%s", path);
-    if(database) {
-        snprintf(list_params.database, sizeof(list_params.database), "%s", database);
-    }
-    if(topic) {
-        snprintf(list_params.topic, sizeof(list_params.topic), "%s", topic);
-    }
-    list_params.match_cond = match_cond;
-    list_params.verbose = verbose;
-
-    if(empty_string(database)) {
-        return list_recursive_databases(&list_params);
+        fprintf(stderr, "What Database?\n\nFound:\n\n");
+        list_databases(list_params->arguments->path);
+        exit(-1);
     }
 
-    if(empty_string(topic)) {
-        return list_recursive_topics(&list_params);
-    }
-
-    return list_messages(
-        path,
-        database,
-        topic,
-        match_cond,
-        verbose
-    );
+    list_params->arguments->topic = "";
+    list_params->arguments->database = "";
+    list_params->arguments->path = path_tranger;
+    return list_recursive_topics(list_params);
 }
 
 /***************************************************************************
@@ -922,26 +831,22 @@ int main(int argc, char *argv[])
     clock_gettime (CLOCK_MONOTONIC, &st);
 
     if(empty_string(arguments.path)) {
-        fprintf(stderr, "What TrTb path?\n");
+        fprintf(stderr, "What TimeRanger path?\n");
+        fprintf(stderr, "You must supply --path option\n\n");
         exit(-1);
     }
+
+    list_params_t list_params;
+    memset(&list_params, 0, sizeof(list_params));
+    list_params.arguments = &arguments;
+    list_params.match_cond = match_cond;
+
     if(arguments.recursive) {
-        list_recursive_gps_msg(
-            arguments.path,
-            arguments.database,
-            arguments.topic,
-            match_cond,
-            arguments.verbose
-        );
+        list_recursive_topic_messages(&list_params);
     } else {
-        list_messages(
-            arguments.path,
-            arguments.database,
-            arguments.topic,
-            match_cond,
-            arguments.verbose
-        );
+        list_topic_messages(&list_params);
     }
+
     JSON_DECREF(match_cond);
 
     clock_gettime (CLOCK_MONOTONIC, &et);

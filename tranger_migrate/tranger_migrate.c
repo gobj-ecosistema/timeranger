@@ -45,6 +45,7 @@ struct arguments
     char *path;
     char *database;
     char *topic;
+    char *destination;
     int recursive;
     char *mode;
     char *fields;
@@ -109,6 +110,7 @@ static struct argp_option options[] = {
 {"path",                'a',    "PATH",             0,      "Path of database/topic.",2},
 {"database",            'b',    "DATABASE",         0,      "Tranger database name.",2},
 {"topic",               'c',    "TOPIC",            0,      "Topic name.",      2},
+{"destination",         'd',    "DESTINATION",      0,      "Destination directory", 2},
 {"recursive",           'r',    0,                  0,      "List recursively.",  2},
 
 {0,                     0,      0,                  0,      "Presentation",     3},
@@ -169,6 +171,9 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state)
         break;
     case 'c':
         arguments->topic= arg;
+        break;
+    case 'd':
+        arguments->destination= arg;
         break;
     case 'r':
         arguments->recursive = 1;
@@ -469,58 +474,63 @@ PRIVATE int load_record_callback(
  ***************************************************************************/
 PRIVATE int _migrate_messages(list_params_t *list_params)
 {
-    printf("Migrate:\n");
-    printf("  path: %s\n", list_params->arguments->path);
-    printf("  database: %s\n", list_params->arguments->database);
-    printf("  topic: %s\n", list_params->arguments->topic);
+//     printf("Migrate:\n");
+//     printf("  path: %s\n", list_params->arguments->path);
+//     printf("  database: %s\n", list_params->arguments->database);
+//     printf("  topic: %s\n", list_params->arguments->topic);
+    char *path = list_params->arguments->path;
+    char *database = list_params->arguments->database;
+    char *topic_name = list_params->arguments->topic;
+    int verbose = list_params->arguments->verbose;
+    json_t *match_cond = list_params->match_cond;
 
-//     /*-------------------------------*
-//      *  Startup TimeRanger
-//      *-------------------------------*/
-//     json_t *jn_tranger = json_pack("{s:s, s:s}",
-//         "path", path,
-//         "database", database
-//     );
-//     json_t * tranger = tranger_startup(jn_tranger);
-//     if(!tranger) {
-//         fprintf(stderr, "Can't startup tranger %s/%s\n\n", path, database);
-//         exit(-1);
-//     }
-//
-//     /*-------------------------------*
-//      *  Open topic
-//      *-------------------------------*/
-//     json_t * htopic = tranger_open_topic(
-//         tranger,
-//         topic_name,
-//         FALSE
-//     );
-//     if(!htopic) {
-//         fprintf(stderr, "Can't open topic %s\n\n", topic_name);
-//         list_topics(path, database);
-//         exit(-1);
-//     }
-//
-//     json_t *jn_list = json_pack("{s:s, s:o, s:I, s:i}",
-//         "topic_name", topic_name,
-//         "match_cond", match_cond?match_cond:json_object(),
-//         "load_record_callback", (json_int_t)(size_t)load_record_callback,
-//         "verbose", verbose
-//     );
-//
-//     json_t *tr_list = tranger_open_list(
-//         tranger,
-//         jn_list
-//     );
-//     if(tr_list) {
-//         tranger_close_list(tranger, tr_list);
-//     }
-//
-//     /*-------------------------------*
-//      *  Free resources
-//      *-------------------------------*/
-//     tranger_close_topic(tranger, topic_name);
-//     tranger_shutdown(tranger);
+    /*-------------------------------*
+     *  Startup TimeRanger
+     *-------------------------------*/
+    json_t *jn_tranger = json_pack("{s:s, s:s}",
+        "path", path,
+        "database", database
+    );
+    json_t * tranger = tranger_startup(jn_tranger);
+    if(!tranger) {
+        fprintf(stderr, "Can't startup tranger %s/%s\n\n", path, database);
+        exit(-1);
+    }
+
+    /*-------------------------------*
+     *  Open topic
+     *-------------------------------*/
+    json_t * htopic = tranger_open_topic(
+        tranger,
+        topic_name,
+        FALSE
+    );
+    if(!htopic) {
+        fprintf(stderr, "Can't open topic %s\n\n", topic_name);
+        exit(-1);
+    }
+
+    JSON_INCREF(match_cond);
+    json_t *jn_list = json_pack("{s:s, s:o, s:I, s:i}",
+        "topic_name", topic_name,
+        "match_cond", match_cond?match_cond:json_object(),
+        "load_record_callback", (json_int_t)(size_t)load_record_callback,
+        "verbose", verbose
+    );
+
+    json_t *tr_list = tranger_open_list(
+        tranger,
+        jn_list
+    );
+    if(tr_list) {
+        tranger_close_list(tranger, tr_list);
+    }
+
+    /*-------------------------------*
+     *  Free resources
+     *-------------------------------*/
+    tranger_close_topic(tranger, topic_name);
+    tranger_shutdown(tranger);
 
     return 0;
 }
@@ -792,7 +802,12 @@ int main(int argc, char *argv[])
 
     if(empty_string(arguments.path)) {
         fprintf(stderr, "What TimeRanger path?\n");
-        fprintf(stderr, "You must supply --path\n\n");
+        fprintf(stderr, "You must supply --path option\n\n");
+        exit(-1);
+    }
+    if(empty_string(arguments.destination)) {
+        fprintf(stderr, "What destination path?\n");
+        fprintf(stderr, "You must supply --destination option\n\n");
         exit(-1);
     }
 

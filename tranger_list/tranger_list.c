@@ -327,6 +327,7 @@ PRIVATE int list_topics(const char *path)
     printf("\n");
     return 0;
 }
+
 /***************************************************************************
  *
  ***************************************************************************/
@@ -759,7 +760,7 @@ int main(int argc, char *argv[])
 
     if(empty_string(arguments.path)) {
         fprintf(stderr, "What TimeRanger path?\n");
-        fprintf(stderr, "You must supply --path\n\n");
+        fprintf(stderr, "You must supply --path option\n\n");
         exit(-1);
     }
 
