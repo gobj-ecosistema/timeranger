@@ -350,7 +350,7 @@ PRIVATE int list_topics(const char *path)
 /***************************************************************************
  *
  ***************************************************************************/
-PRIVATE int load_record_callback(
+PRIVATE int migrate_record_callback(
     json_t *tranger,
     json_t *topic,
     json_t *list,
@@ -361,8 +361,14 @@ PRIVATE int load_record_callback(
     static BOOL first_time = TRUE;
     total_counter++;
     partial_counter++;
-    int verbose = kw_get_int(list, "verbose", 0, KW_REQUIRED);
+    list_params_t *list_params = (list_params_t *)(size_t)kw_get_int(
+        list, "list_params", 0, KW_REQUIRED
+    );
+    int verbose = list_params->arguments->verbose;
     char title[1024];
+
+JSON_DECREF(jn_record);
+return 0;
 
     print_md1_record(tranger, topic, md_record, title, sizeof(title));
 
@@ -474,10 +480,6 @@ PRIVATE int load_record_callback(
  ***************************************************************************/
 PRIVATE int _migrate_messages(list_params_t *list_params)
 {
-//     printf("Migrate:\n");
-//     printf("  path: %s\n", list_params->arguments->path);
-//     printf("  database: %s\n", list_params->arguments->database);
-//     printf("  topic: %s\n", list_params->arguments->topic);
     char *path = list_params->arguments->path;
     char *database = list_params->arguments->database;
     char *topic_name = list_params->arguments->topic;
@@ -511,11 +513,11 @@ PRIVATE int _migrate_messages(list_params_t *list_params)
     }
 
     JSON_INCREF(match_cond);
-    json_t *jn_list = json_pack("{s:s, s:o, s:I, s:i}",
+    json_t *jn_list = json_pack("{s:s, s:o, s:I, s:I}",
         "topic_name", topic_name,
         "match_cond", match_cond?match_cond:json_object(),
-        "load_record_callback", (json_int_t)(size_t)load_record_callback,
-        "verbose", verbose
+        "migrate_record_callback", (json_int_t)(size_t)migrate_record_callback,
+        "list_params", (json_int_t)(size_t)list_params
     );
 
     json_t *tr_list = tranger_open_list(
@@ -808,6 +810,10 @@ int main(int argc, char *argv[])
     if(empty_string(arguments.destination)) {
         fprintf(stderr, "What destination path?\n");
         fprintf(stderr, "You must supply --destination option\n\n");
+        exit(-1);
+    }
+    if(!is_directory(arguments.destination)) {
+        fprintf(stderr, "Destination path '%s' is not a directory\n\n", arguments.destination);
         exit(-1);
     }
 

@@ -505,6 +505,7 @@ PRIVATE int _search_messages(list_params_t *list_params)
         exit(-1);
     }
 
+    JSON_INCREF(match_cond);
     json_t *jn_list = json_pack("{s:s, s:o, s:I, s:i}",
         "topic_name", topic_name,
         "match_cond", match_cond?match_cond:json_object(),
