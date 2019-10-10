@@ -47,8 +47,6 @@ struct arguments
     char *topic;
     char *destination;
     int recursive;
-    char *mode;
-    char *fields;
     int verbose;
 
     char *from_t;
@@ -88,8 +86,8 @@ PRIVATE int list_topics(const char *path);
  *      Data
  ***************************************************************************/
 struct arguments arguments;
-int total_found = 0;
 int total_counter = 0;
+int migrate_counter = 0;
 int partial_counter = 0;
 const char *argp_program_version = NAME " " VERSION;
 const char *argp_program_bug_address = SUPPORT;
@@ -112,11 +110,7 @@ static struct argp_option options[] = {
 {"topic",               'c',    "TOPIC",            0,      "Topic name.",      2},
 {"destination",         'd',    "DESTINATION",      0,      "Destination directory", 2},
 {"recursive",           'r',    0,                  0,      "List recursively.",  2},
-
-{0,                     0,      0,                  0,      "Presentation",     3},
-{"verbose",             'l',    "LEVEL",            0,      "Verbose level (0=total, 1=metadata, 2=metadata+path, 3=metadata+record.", 3},
-{"mode",                'm',    "MODE",             0,      "Mode: form or table", 3},
-{"fields",              'f',    "FIELDS",           0,      "Print only this fields", 3},
+{"verbose",             'l',    "LEVEL",            0,      "Verbose level (0=total, 1=metadata, 2=metadata+path, 3=metadata+record.", 2},
 
 {0,                     0,      0,                  0,      "Search conditions", 4},
 {"from-t",              1,      "TIME",             0,      "From time.",       4},
@@ -183,13 +177,6 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state)
             arguments->verbose = atoi(arg);
         }
         break;
-    case 'm':
-        arguments->mode = arg;
-        break;
-    case 'f':
-        arguments->fields = arg;
-        break;
-
     case 1: // from_t
         arguments->from_t = arg;
         break;
@@ -350,7 +337,7 @@ PRIVATE int list_topics(const char *path)
 /***************************************************************************
  *
  ***************************************************************************/
-PRIVATE int migrate_record_callback(
+PRIVATE int load_record_callback(
     json_t *tranger,
     json_t *topic,
     json_t *list,
@@ -358,119 +345,55 @@ PRIVATE int migrate_record_callback(
     json_t *jn_record
 )
 {
-    static BOOL first_time = TRUE;
-    total_counter++;
-    partial_counter++;
     list_params_t *list_params = (list_params_t *)(size_t)kw_get_int(
         list, "list_params", 0, KW_REQUIRED
     );
+
+    json_t *tranger_dst = kw_get_dict(list, "tranger_dst", 0, KW_REQUIRED);
+
     int verbose = list_params->arguments->verbose;
+
     char title[1024];
-
-JSON_DECREF(jn_record);
-return 0;
-
     print_md1_record(tranger, topic, md_record, title, sizeof(title));
-
-    BOOL table_mode = TRUE; // same logic as tranger_list.c
-    if(table_mode) {
-        table_mode = TRUE;
-    }
 
     if(!jn_record) {
         jn_record = tranger_read_record_content(tranger, topic, md_record);
     }
 
-    const char *search_content_key = kw_get_str(list, "match_cond`search_content_key", "", 0);
-    const char *search_content_filter = kw_get_str(list, "match_cond`search_content_filter", "", 0);
-    const char *search_content_text = kw_get_str(list, "match_cond`search_content_text", "", 0);
-
-    GBUFFER *gbuf_value = kw_get_gbuf_value(jn_record, search_content_key, 0, 0);
-    if(!gbuf_value) {
-        JSON_DECREF(jn_record);
-        return 0;
-    }
-    SWITCHS(search_content_filter) {
-        // Engine RPM - Engine Speed
-        CASES("base64")
-            {
-                gbuf_value = gbuf_decodebase64(gbuf_value);
-            }
-            break;
-        DEFAULTS
-            break;
-    } SWITCHS_END;
-
-    char *p = gbuf_cur_rd_pointer(gbuf_value);
-    if(strstr(p, search_content_text)) {
-        total_found++;
-
-        if(verbose == 1) {
-            printf("%s\n", title);
-        }
-        if(verbose == 2) {
-            print_md2_record(tranger, topic, md_record, title, sizeof(title));
-            printf("%s\n", title);
-        }
-
-        if(!empty_string(arguments.fields)) {
-            const char ** keys = 0;
-            keys = split2(arguments.fields, ", ", 0);
-            json_t *jn_record_with_fields = kw_clone_by_path(
-                jn_record,   // owned
-                keys
-            );
-            split_free2(keys);
-            jn_record = jn_record_with_fields;
-
-        }
-        if(json_object_size(jn_record)>0 && verbose >= 3) {
-            const char *key;
-            json_t *jn_value;
-            int len;
-            int col;
-            if(first_time) {
-                first_time = FALSE;
-                col = 0;
-                json_object_foreach(jn_record, key, jn_value) {
-                    len = strlen(key);
-                    if(col == 0) {
-                        printf("%*.*s", len, len, key);
-                    } else {
-                        printf(" %*.*s", len, len, key);
-                    }
-                    col++;
-                }
-                printf("\n");
-                col = 0;
-                json_object_foreach(jn_record, key, jn_value) {
-                    len = strlen(key);
-                    if(col == 0) {
-                        printf("%*.*s", len, len, "=======================================");
-                    } else {
-                        printf(" %*.*s", len, len, "=======================================");
-                    }
-                    col++;
-                }
-                printf("\n");
-            }
-            col = 0;
-            json_object_foreach(jn_record, key, jn_value) {
-                char *s = json2uglystr(jn_value);
-                if(col == 0) {
-                    printf("%s", s);
-                } else {
-                    printf(" %s", s);
-                }
-                gbmem_free(s);
-                col++;
-            }
-            printf("\n");
-        }
+    if(verbose == 1) {
+        printf("%s\n", title);
+    } else if(verbose == 2) {
+        print_md2_record(tranger, topic, md_record, title, sizeof(title));
+        printf("%s\n", title);
+    } else if(verbose == 3) {
+        print_json2(title, jn_record);
     }
 
-    GBUF_DECREF(gbuf_value);
-    JSON_DECREF(jn_record);
+    /*------------------------------------*
+     *          Changes
+     *------------------------------------*/
+    if(!empty_string(list_params->arguments->change_pkey)) {
+        //list_params->arguments->new_pkey
+    }
+
+
+    /*
+     *  Save
+     */
+    md_record_t md_dst_record;
+    int ret = tranger_append_record(
+        tranger_dst,
+        tranger_topic_name(topic),
+        md_record->__t__,      // if 0 then the time will be set by TimeRanger with now time
+        md_record->__user_flag__,
+        &md_dst_record,  // required
+        jn_record   // owned
+    );
+    if(ret == 0) {
+        migrate_counter++;
+        partial_counter++;
+    }
+    total_counter++;
 
     return 0;
 }
@@ -480,59 +403,137 @@ return 0;
  ***************************************************************************/
 PRIVATE int _migrate_messages(list_params_t *list_params)
 {
-    char *path = list_params->arguments->path;
+    char *path_src = list_params->arguments->path;
+    char *path_dst = list_params->arguments->destination;
     char *database = list_params->arguments->database;
     char *topic_name = list_params->arguments->topic;
-    int verbose = list_params->arguments->verbose;
     json_t *match_cond = list_params->match_cond;
 
     /*-------------------------------*
-     *  Startup TimeRanger
+     *  Check not override
      *-------------------------------*/
-    json_t *jn_tranger = json_pack("{s:s, s:s}",
-        "path", path,
-        "database", database
-    );
-    json_t * tranger = tranger_startup(jn_tranger);
-    if(!tranger) {
-        fprintf(stderr, "Can't startup tranger %s/%s\n\n", path, database);
+    if(strncmp(path_src, path_dst, strlen(path_src))==0) {
+        fprintf(stderr, "Can't override tranger: %s/%s\n\n", path_src, database);
         exit(-1);
     }
 
     /*-------------------------------*
-     *  Open topic
+     *  Startup TimeRanger source
      *-------------------------------*/
-    json_t * htopic = tranger_open_topic(
-        tranger,
-        topic_name,
-        FALSE
+    json_t *jn_tranger_src = json_pack("{s:s, s:s}",
+        "path", path_src,
+        "database", database
     );
-    if(!htopic) {
-        fprintf(stderr, "Can't open topic %s\n\n", topic_name);
+    json_t * tranger_src = tranger_startup(jn_tranger_src);
+    if(!tranger_src) {
+        fprintf(stderr, "Can't startup source tranger: %s/%s\n\n", path_src, database);
         exit(-1);
     }
 
+    /*-----------------------------------*
+     *  Startup TimeRanger destination
+     *-----------------------------------*/
+    json_t *jn_tranger_dst = json_pack("{s:s, s:s, s:b}",
+        "path", path_dst,
+        "database", database,
+        "master", 1
+    );
+    json_object_set_new(jn_tranger_dst, "filename_mask",
+        json_string(kw_get_str(tranger_src, "filename_mask", "", KW_REQUIRED))
+    );
+    json_object_set_new(jn_tranger_dst, "rpermission",
+        json_integer(kw_get_int(tranger_src, "rpermission", 0, KW_REQUIRED))
+    );
+    json_object_set_new(jn_tranger_dst, "xpermission",
+        json_integer(kw_get_int(tranger_src, "xpermission", 0, KW_REQUIRED))
+    );
+
+    json_t *tranger_dst = tranger_startup(jn_tranger_dst);
+    if(!tranger_dst) {
+        fprintf(stderr, "Can't startup destination tranger: %s/%s\n\n", path_dst, database);
+        exit(-1);
+    }
+
+    /*-------------------------------*
+     *  Open source topic
+     *-------------------------------*/
+    json_t *htopic_src = tranger_open_topic(
+        tranger_src,
+        topic_name,
+        FALSE
+    );
+    if(!htopic_src) {
+        fprintf(stderr, "Can't open source topic: %s\n\n", topic_name);
+        exit(-1);
+    }
+
+    /*-------------------------------*
+     *  Create destination topic
+     *-------------------------------*/
+    json_t *htopic_dst = tranger_open_topic(
+        tranger_dst,
+        topic_name,
+        FALSE
+    );
+    if(htopic_dst) {
+        fprintf(stderr, "Destination topic ALREADY exists: %s\n\n", topic_name);
+        exit(-1);
+    }
+
+    /*------------------------------------*
+     *          Changes
+     *------------------------------------*/
+    const char *pkey = kw_get_str(htopic_src, "pkey", "", KW_REQUIRED);
+    const char *tkey = kw_get_str(htopic_src, "tkey", "", KW_REQUIRED);
+    json_int_t system_flag = kw_get_int(htopic_src, "system_flag", 0, KW_REQUIRED);
+    json_t *cols = kw_get_dict(htopic_src, "cols", 0, KW_REQUIRED);
+
+    if(!empty_string(list_params->arguments->change_pkey)) {
+        if(empty_string(list_params->arguments->new_pkey)) {
+            fprintf(stderr, "What new pkey?\n\n");
+            exit(-1);
+        }
+        pkey = list_params->arguments->new_pkey;
+    }
+
+    JSON_INCREF(cols);
+    htopic_dst = tranger_create_topic(
+        tranger_dst,
+        topic_name,
+        pkey,
+        tkey,
+        system_flag,
+        cols // owned
+    );
+
+    if(!htopic_dst) {
+        fprintf(stderr, "Can't create destination topic: %s\n\n", topic_name);
+        exit(-1);
+    }
+
+    /*-------------------------------*
+     *  Open source list
+     *-------------------------------*/
     JSON_INCREF(match_cond);
-    json_t *jn_list = json_pack("{s:s, s:o, s:I, s:I}",
+    json_t *jn_list = json_pack("{s:s, s:o, s:I, s:I, s:O}",
         "topic_name", topic_name,
         "match_cond", match_cond?match_cond:json_object(),
-        "migrate_record_callback", (json_int_t)(size_t)migrate_record_callback,
-        "list_params", (json_int_t)(size_t)list_params
+        "load_record_callback", (json_int_t)(size_t)load_record_callback,
+        "list_params", (json_int_t)(size_t)list_params,
+        "tranger_dst", tranger_dst
     );
 
     json_t *tr_list = tranger_open_list(
-        tranger,
+        tranger_src,
         jn_list
     );
-    if(tr_list) {
-        tranger_close_list(tranger, tr_list);
-    }
+    tranger_close_list(tranger_src, tr_list);
 
     /*-------------------------------*
      *  Free resources
      *-------------------------------*/
-    tranger_close_topic(tranger, topic_name);
-    tranger_shutdown(tranger);
+    tranger_shutdown(tranger_src);
+    tranger_shutdown(tranger_dst);
 
     return 0;
 }
@@ -812,6 +813,9 @@ int main(int argc, char *argv[])
         fprintf(stderr, "You must supply --destination option\n\n");
         exit(-1);
     }
+    char path_dst[PATH_MAX];
+    realpath(arguments.destination, path_dst);
+    arguments.destination = path_dst;
     if(!is_directory(arguments.destination)) {
         fprintf(stderr, "Destination path '%s' is not a directory\n\n", arguments.destination);
         exit(-1);
@@ -838,11 +842,11 @@ int main(int argc, char *argv[])
     dt = ts_diff2(st, et);
 
     setlocale(LC_ALL, "");
-    printf("\n====> Migrated %'d records in total of %'d;  %'f seconds; %'lu op/sec\n\n",
-        total_found,
+    printf("\n====> Migrate: %'d records of %'d records; %'f seconds; %'lu op/sec\n\n",
+        migrate_counter,
         total_counter,
         dt,
-        (unsigned long)(((double)total_counter)/dt)
+        (unsigned long)(((double)migrate_counter)/dt)
     );
 
     gbmem_shutdown();
