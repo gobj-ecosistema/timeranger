@@ -373,7 +373,6 @@ PRIVATE int load_record_callback(
     if(!jn_record) {
         jn_record = tranger_read_record_content(tranger, topic, md_record);
     }
-
     const char *search_content_key = kw_get_str(list, "match_cond`search_content_key", "", 0);
     const char *search_content_filter = kw_get_str(list, "match_cond`search_content_filter", "", 0);
     const char *search_content_text = kw_get_str(list, "match_cond`search_content_text", "", 0);
@@ -383,11 +382,13 @@ PRIVATE int load_record_callback(
         JSON_DECREF(jn_record);
         return 0;
     }
+    BOOL base64 = FALSE;
     SWITCHS(search_content_filter) {
         // Engine RPM - Engine Speed
         CASES("base64")
             {
                 gbuf_value = gbuf_decodebase64(gbuf_value);
+                base64 = TRUE;
             }
             break;
         DEFAULTS
@@ -395,7 +396,37 @@ PRIVATE int load_record_callback(
     } SWITCHS_END;
 
     char *p = gbuf_cur_rd_pointer(gbuf_value);
-    if(strstr(p, search_content_text)) {
+
+    if(base64) {
+        if(empty_string(search_content_text) || strstr(p, search_content_text)) {
+            total_found++;
+            if(verbose == 1) {
+                printf("===> %s\n", title);
+            }
+            if(verbose == 2) {
+                print_md2_record(tranger, topic, md_record, title, sizeof(title));
+                printf("===> %s\n", title);
+            }
+            if(verbose == 3) {
+                printf("===> %s\n", title);
+                const char *key;
+                json_t *jn_value;
+                json_object_foreach(jn_record, key, jn_value) {
+                    if(strcmp(search_content_key, key)==0) {
+                        json_t *jn = json_string(p);
+                        char *s = json2uglystr(jn);
+                        printf("\"%s\": %s\n", key, s);
+                        gbmem_free(s);
+                        json_decref(jn);
+                    } else {
+                        char *s = json2uglystr(jn_value);
+                        printf("\"%s\": %s\n", key, s);
+                        gbmem_free(s);
+                    }
+                }
+            }
+        }
+    } else if(empty_string(search_content_text) || strstr(p, search_content_text)) {
         total_found++;
 
         if(verbose == 1) {
@@ -405,7 +436,6 @@ PRIVATE int load_record_callback(
             print_md2_record(tranger, topic, md_record, title, sizeof(title));
             printf("%s\n", title);
         }
-
         if(!empty_string(arguments.fields)) {
             const char ** keys = 0;
             keys = split2(arguments.fields, ", ", 0);
