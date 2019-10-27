@@ -41,7 +41,6 @@ typedef struct {
     char topic[256];
     json_t *jn_ids;
     json_t *jn_filter;
-    json_t *jn_options;
     int verbose;
 } list_params_t;
 
@@ -65,7 +64,7 @@ struct arguments
     int verbose;
 
     int print_tranger;
-    int print_treedb;
+    int print_msg2db;
     int expand_nodes;
 };
 
@@ -104,10 +103,7 @@ static struct argp_option options[] = {
 
 {0,                     0,      0,                  0,      "Print",            3},
 {"print-tranger",       5,      0,                  0,      "Print tranger json", 3},
-{"print-treedb",        6,      0,                  0,      "Print treedb json", 3},
-
-{0,                     0,      0,                  0,      "TreeDb options",       30},
-{"expand",              30,     0,                  0,      "Expand nodes.",         30},
+{"print-msg2db",        6,      0,                  0,      "Print msg2db json", 3},
 
 {0}
 };
@@ -158,7 +154,7 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state)
         break;
 
     case 6:
-        arguments->print_treedb = 1;
+        arguments->print_msg2db = 1;
         break;
 
     case 30:
@@ -238,7 +234,6 @@ PRIVATE int _list_messages(
     char *topic,
     json_t *jn_ids,
     json_t *jn_filter,
-    json_t *jn_options,
     int verbose)
 {
     /*-------------------------------*
@@ -267,8 +262,8 @@ PRIVATE int _list_messages(
 
     if(arguments.print_tranger) {
         print_json(tranger);
-    } else if(arguments.print_treedb) {
-        print_json(kw_get_dict(tranger, "treedbs", 0, KW_REQUIRED));
+    } else if(arguments.print_msg2db) {
+        print_json(kw_get_dict(tranger, "msg2dbs", 0, KW_REQUIRED));
     } else {
         const char *topic_name; json_t *topic_data;
         json_object_foreach(msg2db, topic_name, topic_data) {
@@ -279,7 +274,6 @@ PRIVATE int _list_messages(
             }
             JSON_INCREF(jn_ids);
             JSON_INCREF(jn_filter);
-            JSON_INCREF(jn_options);
 
             json_t *node_list = msg2db_list_messages( // Return MUST be decref
                 tranger,
@@ -287,7 +281,6 @@ PRIVATE int _list_messages(
                 topic_name,
                 jn_ids,
                 jn_filter,
-                jn_options,
                 0  // match_fn
             );
 
@@ -318,7 +311,6 @@ PRIVATE int list_messages(
     char *topic,
     json_t *jn_ids,
     json_t *jn_filter,
-    json_t *jn_options,
     int verbose)
 {
     /*
@@ -352,7 +344,6 @@ PRIVATE int list_messages(
             topic,
             jn_ids,
             jn_filter,
-            jn_options,
             verbose
         );
     }
@@ -366,7 +357,6 @@ PRIVATE int list_messages(
             topic,
             jn_ids,
             jn_filter,
-            jn_options,
             verbose
         );
     }
@@ -407,7 +397,6 @@ PRIVATE BOOL list_recursive_db_cb(
         list_params2.topic,
         list_params2.jn_ids,
         list_params2.jn_filter,
-        list_params2.jn_options,
         list_params2.verbose
     );
 
@@ -438,7 +427,6 @@ PRIVATE int list_recursive_msg(
     char *topic,
     json_t *jn_ids,
     json_t *jn_filter,
-    json_t *jn_options,
     int verbose)
 {
     list_params_t list_params;
@@ -453,7 +441,6 @@ PRIVATE int list_recursive_msg(
     }
     list_params.jn_ids = jn_ids;
     list_params.jn_filter = jn_filter;
-    list_params.jn_options = jn_options;
 
     list_params.verbose = verbose;
 
@@ -553,18 +540,6 @@ int main(int argc, char *argv[])
      *----------------------------------*/
     json_t *jn_filter = json_object(); // TODO
 
-    /*----------------------------------*
-     *  Options
-     *----------------------------------*/
-    json_t *jn_options = json_object();
-    if(!arguments.expand_nodes) {
-        json_object_set_new(
-            jn_options,
-            "collapsed",
-            json_true()
-        );
-    }
-
     /*------------------------*
      *      Do your work
      *------------------------*/
@@ -584,7 +559,6 @@ int main(int argc, char *argv[])
             arguments.topic,
             jn_ids,
             jn_filter,
-            jn_options,
             arguments.verbose
         );
     } else {
@@ -594,13 +568,11 @@ int main(int argc, char *argv[])
             arguments.topic,
             jn_ids,
             jn_filter,
-            jn_options,
             arguments.verbose
         );
     }
     JSON_DECREF(jn_ids);
     JSON_DECREF(jn_filter);
-    JSON_DECREF(jn_options);
 
     clock_gettime (CLOCK_MONOTONIC, &et);
 
