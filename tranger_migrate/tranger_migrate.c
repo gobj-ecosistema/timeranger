@@ -503,7 +503,8 @@ PRIVATE int _migrate_messages(list_params_t *list_params)
         pkey,
         tkey,
         system_flag,
-        cols // owned
+        cols, // owned
+        0
     );
 
     if(!htopic_dst) {

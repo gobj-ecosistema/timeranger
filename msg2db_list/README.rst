@@ -1,7 +1,7 @@
 C Project
 =========
 
-Name: trmsg2_list
+Name: msg2db_list
 
 Description
 ===========

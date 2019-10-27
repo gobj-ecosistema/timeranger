@@ -1,7 +1,7 @@
 ##############################################
 #   CMake
 ##############################################
-project(trmsg2_list C)
+project(msg2db_list C)
 cmake_minimum_required(VERSION 2.8)
 include(CheckIncludeFiles)
 include(CheckSymbolExists)
@@ -42,16 +42,15 @@ include_directories(BEFORE /yuneta/development/output/include)
 ##############################################
 
 SET (YUNO_SRCS
-    trmsg2_list.c
+    msg2db_list.c
 )
 
 ##############################################
 #   yuno
 ##############################################
-ADD_EXECUTABLE(trmsg2_list ${YUNO_SRCS} ${YUNO_HDRS})
+ADD_EXECUTABLE(msg2db_list ${YUNO_SRCS} ${YUNO_HDRS})
 
-if(CMAKE_BUILD_TYPE MATCHES Debug)
-TARGET_LINK_LIBRARIES(trmsg2_list
+TARGET_LINK_LIBRARIES(msg2db_list
     /yuneta/development/output/lib/libghelpersd.a
     /yuneta/development/output/lib/libuv.a
     /yuneta/development/output/lib/libjansson.a
@@ -60,27 +59,14 @@ TARGET_LINK_LIBRARIES(trmsg2_list
 
     pthread     # used by libuv
     lzma        # used by libunwind
-
+    uuid
 )
-else(CMAKE_BUILD_TYPE MATCHES Debug)
-TARGET_LINK_LIBRARIES(trmsg2_list
-    /yuneta/development/output/lib/libghelpers.a
-    /yuneta/development/output/lib/libuv.a
-    /yuneta/development/output/lib/libjansson.a
-    /yuneta/development/output/lib/libunwind.a
-    /yuneta/development/output/lib/libpcre2-8.a
-
-    pthread     # used by libuv
-    lzma        # used by libunwind
-
-)
-endif(CMAKE_BUILD_TYPE MATCHES Debug)
 
 ##############################################
 #   Installation
 ##############################################
 install(
-    TARGETS trmsg2_list
+    TARGETS msg2db_list
     PERMISSIONS
     OWNER_READ OWNER_WRITE OWNER_EXECUTE
     GROUP_READ GROUP_WRITE GROUP_EXECUTE

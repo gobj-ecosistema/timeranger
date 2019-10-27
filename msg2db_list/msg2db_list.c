@@ -1,9 +1,10 @@
 /****************************************************************************
- *          TREEDB_LIST.C
+ *          TRMSG2_LIST.C
  *
- *  List records of Tree Database over TimeRanger
- *  Hierarchical tree of objects (nodes, records, messages)
- *  linked by child-parent relation.
+ *  List Messages (ordered by pkey,pkey2: active and their instances) with TimeRanger
+ *
+ *  Double dict of messages (message: active and instances)
+ *
  *
  *          Copyright (c) 2018 Niyamaka.
  *          All Rights Reserved.
@@ -24,8 +25,8 @@
 /***************************************************************************
  *              Constants
  ***************************************************************************/
-#define APP_NAME    "treedb_list"
-#define DOC         "List messages of Treedb database."
+#define APP_NAME    "msg2db_list"
+#define DOC         "List messages of Dict/dict database."
 
 #define VERSION     __ghelpers_version__
 #define SUPPORT     "<niyamaka at yuneta.io>"
@@ -210,7 +211,7 @@ PRIVATE BOOL list_db_cb(
 )
 {
     printf("  directory: %s\n", directory);
-    printf("  treedb   : %s\n", name);
+    printf("  msg2db   : %s\n", name);
     return TRUE; // to continue
 }
 
@@ -219,7 +220,7 @@ PRIVATE int list_databases(const char *path)
     printf("Databases found:\n");
     walk_dir_tree(
         path,
-        ".*\\.treedb_schema\\.json",
+        ".*\\.msg2db_schema\\.json",
         WD_RECURSIVE|WD_MATCH_REGULAR_FILE,
         list_db_cb,
         0
@@ -233,7 +234,7 @@ PRIVATE int list_databases(const char *path)
  ***************************************************************************/
 PRIVATE int _list_messages(
     char *path, // must contains the full path of tranger database
-    char *treedb_name, // must contains the treedb name
+    char *msg2db_name, // must contains the msg2db name
     char *topic,
     json_t *jn_ids,
     json_t *jn_filter,
@@ -255,11 +256,11 @@ PRIVATE int _list_messages(
     }
 
     /*-------------------------------*
-     *  Open treedb
+     *  Open msg2db
      *-------------------------------*/
-    json_t *treedb = treedb_open_db(
+    json_t *msg2db = msg2db_open_db(
         tranger,
-        treedb_name,
+        msg2db_name,
         0, // jn_schema_sample
         "persistent"
     );
@@ -270,7 +271,7 @@ PRIVATE int _list_messages(
         print_json(kw_get_dict(tranger, "treedbs", 0, KW_REQUIRED));
     } else {
         const char *topic_name; json_t *topic_data;
-        json_object_foreach(treedb, topic_name, topic_data) {
+        json_object_foreach(msg2db, topic_name, topic_data) {
             if(!empty_string(topic)) {
                 if(strcmp(topic, topic_name)!=0) {
                     continue;
@@ -280,9 +281,9 @@ PRIVATE int _list_messages(
             JSON_INCREF(jn_filter);
             JSON_INCREF(jn_options);
 
-            json_t *node_list = treedb_list_nodes( // Return MUST be decref
+            json_t *node_list = msg2db_list_messages( // Return MUST be decref
                 tranger,
-                treedb_name,
+                msg2db_name,
                 topic_name,
                 jn_ids,
                 jn_filter,
@@ -302,7 +303,7 @@ PRIVATE int _list_messages(
     /*-------------------------------*
      *  Free resources
      *-------------------------------*/
-    treedb_close_db(tranger, treedb_name);
+    msg2db_close_db(tranger, msg2db_name);
     tranger_shutdown(tranger);
 
     return 0;
@@ -357,7 +358,7 @@ PRIVATE int list_messages(
     }
 
     char database_name[NAME_MAX];
-    snprintf(database_name, sizeof(database_name), "%s.treedb_schema.json", database);
+    snprintf(database_name, sizeof(database_name), "%s.msg2db_schema.json", database);
     if(file_exists(path_tranger, database_name)) {
         return _list_messages(
             path_tranger,
@@ -391,7 +392,7 @@ PRIVATE BOOL list_recursive_db_cb(
     list_params_t *list_params = user_data;
     list_params_t list_params2 = *list_params;
 
-    char *p = strstr(name, ".treedb_schema.json");
+    char *p = strstr(name, ".msg2db_schema.json");
     if(p) {
         *p = 0;
     }
@@ -419,7 +420,7 @@ PRIVATE int list_recursive_databases(list_params_t *list_params)
 {
     walk_dir_tree(
         list_params->path,
-        ".*\\.treedb_schema\\.json",
+        ".*\\.msg2db_schema\\.json",
         WD_RECURSIVE|WD_MATCH_REGULAR_FILE,
         list_recursive_db_cb,
         list_params
