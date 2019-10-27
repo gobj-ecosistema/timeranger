@@ -108,7 +108,7 @@ static struct argp_option options[] = {
 {"recursive",           'r',    0,                  0,      "List recursively.",  2},
 
 {0,                     0,      0,                  0,      "Presentation",     3},
-{"verbose",             'l',    "LEVEL",            0,      "Verbose level (0=total, 1=active, 2=active+metadata, 3=instances, 4=instances+metadata)", 3},
+{"verbose",             'l',    "LEVEL",            0,      "Verbose level (0=total, 1=active, 2=instances, 3=message(active+instances))", 3},
 {"mode",                'm',    "MODE",             0,      "Mode: form or table", 3},
 {"fields",              'f',    "FIELDS",           0,      "Print only this fields", 3},
 
@@ -544,19 +544,29 @@ PRIVATE int _list_messages(list_params_t *list_params)
         match_cond
     );
     if(list) {
+
+        //1=active, 2=instances, 3=message(active+instances)
+
+
         kw_set_dict_value(list, "verbose", json_integer(verbose));
-        if(verbose <3) {
-            trmsg_foreach_active_records(
+        if(verbose < 2) {
+            trmsg_foreach_active_messages(
                 list,
-                verbose==2?TRUE:FALSE, // with_metadata
                 list_active_callback,
                 0,
                 0
             );
-        } else {
-            trmsg_foreach_instances_records(
+        } else if(verbose < 3) {
+            trmsg_foreach_instances_messages(
                 list,
-                verbose==4?TRUE:FALSE, // with_metadata
+                list_instances_callback,
+                0,
+                0
+            );
+        } else {
+            trmsg_foreach_messages(
+                list,
+                FALSE,
                 list_instances_callback,
                 0,
                 0
