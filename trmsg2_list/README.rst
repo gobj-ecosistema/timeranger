@@ -1,12 +1,15 @@
 C Project
 =========
 
-Name: trmsg_list
+Name: trmsg2_list
 
 Description
 ===========
 
-List Messages (ordered by pkey: active and their instances) with TimeRanger
+Messages (ordered by pkey,pkey2: active and their instances) with TimeRanger
+
+Double dict of messages (message: active and instances)
+
 
 License
 -------

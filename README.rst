@@ -1,7 +1,11 @@
 TimeRanger
 ==========
 
+Description
+===========
 Utilities for TimeRanger
+
+List Persistent queue based in TimeRanger
 
 License
 -------

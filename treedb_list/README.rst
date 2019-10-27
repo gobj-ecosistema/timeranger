@@ -6,7 +6,10 @@ Name: treedb_list
 Description
 ===========
 
-List records of timeranger database.
+List records of Tree Database over TimeRanger
+Hierarchical tree of objects (nodes, records, messages)
+linked by child-parent relation.
+
 
 License
 -------

@@ -1,7 +1,10 @@
 /****************************************************************************
- *          TRMSG_LIST.C
+ *          TRMSG2_LIST.C
  *
- *  List Messages (ordered by pkey: active and their instances) with TimeRanger
+ *  List Messages (ordered by pkey,pkey2: active and their instances) with TimeRanger
+ *
+ *  Double dict of messages (message: active and instances)
+ *
  *
  *          Copyright (c) 2018 Niyamaka.
  *          All Rights Reserved.
@@ -22,8 +25,8 @@
 /***************************************************************************
  *              Constants
  ***************************************************************************/
-#define NAME        "trmsg_list"
-#define DOC         "List messages (ordered by pkey: active and their instances) with TimeRanger database."
+#define NAME        "trmsg2_list"
+#define DOC         "List Database of Double dict of messages (message: active and instances)."
 
 #define VERSION     __ghelpers_version__
 #define SUPPORT     "<niyamaka at yuneta.io>"
@@ -538,7 +541,7 @@ PRIVATE int _list_messages(list_params_t *list_params)
      *  Open topic
      *-------------------------------*/
     JSON_INCREF(match_cond);
-    json_t *list = trmsg_open_list(
+    json_t *list = trmsg2_open_list(
         tranger,
         topic_name,
         match_cond
@@ -550,21 +553,21 @@ PRIVATE int _list_messages(list_params_t *list_params)
 
         kw_set_dict_value(list, "verbose", json_integer(verbose));
         if(verbose < 2) {
-            trmsg_foreach_active_messages(
+            trmsg2_foreach_active_messages(
                 list,
                 list_active_callback,
                 0,
                 0
             );
         } else if(verbose < 3) {
-            trmsg_foreach_instances_messages(
+            trmsg2_foreach_instances_messages(
                 list,
                 list_instances_callback,
                 0,
                 0
             );
         } else {
-            trmsg_foreach_messages(
+            trmsg2_foreach_messages(
                 list,
                 FALSE,
                 list_instances_callback,
@@ -573,7 +576,7 @@ PRIVATE int _list_messages(list_params_t *list_params)
             );
         }
 
-        trmsg_close_list(tranger, list);
+        trmsg2_close_list(tranger, list);
     }
 
     /*-------------------------------*
