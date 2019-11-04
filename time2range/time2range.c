@@ -1,9 +1,9 @@
 /****************************************************************************
- *          TIME2DATE.C
+ *          TIME2RANGE.C
  *
- *          Conver time_t to date
+ *          Get range of a time
  *
- *          Copyright (c) 2018 Niyamaka.
+ *          Copyright (c) 2019 Niyamaka.
  *          All Rights Reserved.
  ****************************************************************************/
 #include <stdio.h>
@@ -23,8 +23,8 @@
 /***************************************************************************
  *              Constants
  ***************************************************************************/
-#define NAME        "time2date"
-#define DOC         "Convert time_t to ascii date and viceversa"
+#define NAME        "time2range"
+#define DOC         "Get range of a time"
 
 #define VERSION     "1.0.0"
 #define SUPPORT     "<niyamaka at yuneta.io>"
@@ -37,11 +37,16 @@
 /*
  *  Used by main to communicate with parse_opt.
  */
-#define MIN_ARGS 1
-#define MAX_ARGS 1
+#define MIN_ARGS 0
+#define MAX_ARGS 0
 struct arguments
 {
     char *args[MAX_ARGS+1];     /* positional args */
+
+    time_t t;
+    char *type;
+    int range;
+    char *TZ;
 };
 
 /***************************************************************************
@@ -60,7 +65,7 @@ const char *argp_program_bug_address = SUPPORT;
 static char doc[] = DOC;
 
 /* A description of the arguments we accept. */
-static char args_doc[] = "TIME_T";
+static char args_doc[] = "";
 
 /*
  *  The options we understand.
@@ -68,6 +73,10 @@ static char args_doc[] = "TIME_T";
  */
 static struct argp_option options[] = {
 /*-name-----------------key-----arg-----------------flags---doc-----------------group */
+{"time_t",              't',    "TIME_T",           0,      "Time Epoch",       1},
+{"type",                'y',    "TYPE",             0,      "hours,days,weeks,months,years",2},
+{"range",               'r',    "RANGE",            0,      "Range.",           3},
+{"TZ",                  'z',    "TIME_ZONE",        0,      "Time zone.",       4},
 {0}
 };
 
@@ -91,6 +100,26 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state)
     struct arguments *arguments = state->input;
 
     switch (key) {
+    case 't':
+        if(arg) {
+            arguments->t = atol(arg);
+        }
+        break;
+
+    case 'y':
+        arguments->type = arg;
+        break;
+
+    case 'r':
+        if(arg) {
+            arguments->range = atoi(arg);
+        }
+        break;
+
+    case 'z':
+        arguments->TZ = arg;
+        break;
+
     case ARGP_KEY_ARG:
         if (state->arg_num >= MAX_ARGS) {
             /* Too many arguments. */
@@ -129,27 +158,64 @@ int main(int argc, char *argv[])
      */
     argp_parse(&argp, argc, argv, 0, 0, &arguments);
 
-    timestamp_t timestamp;
-    int offset;
-
-    if(all_numbers(arguments.args[0])) {
-        timestamp = atoll(arguments.args[0]);
-    } else {
-        parse_date_basic(arguments.args[0], &timestamp, &offset);
+    if(!arguments.t) {
+        printf("What time_t?\n");
+        exit(-1);
+    }
+    if(!arguments.type) {
+        printf("What type (hours,days,weeks,months,years)?\n");
+        exit(-1);
     }
 
-    setlocale(LC_ALL, "en_US.UTF-8"); //Deja el numero (PRItime) tal cual
+    time_range_t time_range;
 
-    struct tm *tm;
-    char utc_stamp[164];
-    char local_stamp[164];
-    tm = gmtime((time_t *)&timestamp);
-    strftime(utc_stamp, sizeof(utc_stamp), "%Y-%m-%dT%H:%M:%S%z", tm);
-    tm = localtime((time_t *)&timestamp);
-    strftime(local_stamp, sizeof(local_stamp), "%Y-%m-%dT%H:%M:%S%z", tm);
+    SWITCHS(arguments.type) {
+        CASES("hours")
+            time_range = get_hours_range(arguments.t, arguments.range, arguments.TZ);
+            break;
 
-    //printf("gmtime of %'"PRItime": %s\n", timestamp, utc_stamp);
-    printf("gmtime of %"PRItime": %s, %s\n", timestamp, utc_stamp, local_stamp);
+        CASES("days")
+            time_range = get_days_range(arguments.t, arguments.range, arguments.TZ);
+            break;
 
+        CASES("weeks")
+            time_range = get_weeks_range(arguments.t, arguments.range, arguments.TZ);
+            break;
+
+        CASES("months")
+            time_range = get_months_range(arguments.t, arguments.range, arguments.TZ);
+            break;
+
+        CASES("years")
+            time_range = get_years_range(arguments.t, arguments.range, arguments.TZ);
+            break;
+
+        DEFAULTS
+            printf("What type (hours,days,weeks,months,years)?\n");
+            exit(-1);
+            break;
+    } SWITCHS_END;
+
+
+    char start[80];
+    char end[80];
+
+    time_t offset;
+    if(empty_string(arguments.TZ)) {
+        struct tm *tm = gmtime(&time_range.start);
+        strftime(start, sizeof(start), "%FT%T%z", tm);
+
+        tm = gmtime(&time_range.end);
+        strftime(end, sizeof(end), "%FT%T%z", tm);
+    } else {
+        struct tm tm;
+        gmtime2timezone(time_range.start, arguments.TZ, &tm, &offset);
+        strftime(start, sizeof(start), "%FT%T%z", &tm);
+
+        gmtime2timezone(time_range.end, arguments.TZ, &tm, &offset);
+        strftime(end, sizeof(end), "%FT%T%z", &tm);
+    }
+
+    printf("Start: %s, End: %s\n", start, end);
     return 0;
 }
