@@ -149,7 +149,7 @@ int main(int argc, char *argv[])
     strftime(local_stamp, sizeof(local_stamp), "%Y-%m-%dT%H:%M:%S%z", tm);
 
     //printf("gmtime of %'"PRItime": %s\n", timestamp, utc_stamp);
-    printf("gmtime of %"PRItime": %s, %s\n", timestamp, utc_stamp, local_stamp);
+    printf("gmtime of %"PRItime": %s, %s, yday %d\n", timestamp, utc_stamp, local_stamp, tm->tm_yday);
 
     return 0;
 }
