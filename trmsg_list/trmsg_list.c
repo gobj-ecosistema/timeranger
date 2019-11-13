@@ -108,7 +108,7 @@ static struct argp_option options[] = {
 {"recursive",           'r',    0,                  0,      "List recursively.",  2},
 
 {0,                     0,      0,                  0,      "Presentation",     3},
-{"verbose",             'l',    "LEVEL",            0,      "Verbose level (0=total, 1=active, 2=instances, 3=message(active+instances))", 3},
+{"verbose",             'l',    "LEVEL",            0,      "Verbose level (0=total, 1=active, 2=instances, 3=message(active+instances), 4=message(active+ #of instances))", 3},
 {"mode",                'm',    "MODE",             0,      "Mode: form or table", 3},
 {"fields",              'f',    "FIELDS",           0,      "Print only this fields", 3},
 
@@ -563,7 +563,7 @@ PRIVATE int _list_messages(list_params_t *list_params)
                 0,
                 0
             );
-        } else {
+        } else if(verbose < 4) {
             trmsg_foreach_messages(
                 list,
                 FALSE,
@@ -571,6 +571,18 @@ PRIVATE int _list_messages(list_params_t *list_params)
                 0,
                 0
             );
+        } else {
+            json_int_t total = 0;
+            json_t *messages = trmsg_get_messages(list);
+            const char *key;
+            json_t *message;
+            json_object_foreach(messages, key, message) {
+                json_t *instances = json_object_get(message, "instances");
+                json_int_t n = json_array_size(instances);
+                printf("Key: %s, instances: %lld\n", key, n);
+                total += n;
+            }
+            printf("Total instances: %lld\n", total);
         }
 
         trmsg_close_list(tranger, list);
