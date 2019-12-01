@@ -68,6 +68,9 @@ struct arguments
     char *from_tm;
     char *to_tm;
 
+    char *rkey;
+
+    int list_databases;
 };
 
 typedef struct {
@@ -125,11 +128,16 @@ static struct argp_option options[] = {
 {"system-flag-set",     13,     "MASK",             0,      "Mask of System Flag set.",   7},
 {"system-flag-not-set", 14,     "MASK",             0,      "Mask of System Flag not set.",7},
 
-{"key",                 21,     "KEY",              0,      "Key.",             9},
-{"not-key",             22,     "KEY",              0,      "Not key.",         9},
+{"key",                 15,     "KEY",              0,      "Key.",             9},
+{"not-key",             16,     "KEY",              0,      "Not key.",         9},
 
-{"from-tm",             25,     "TIME",             0,      "From msg time.",       10},
-{"to-tm",               26,     "TIME",             0,      "To msg time.",         10},
+{"from-tm",             17,     "TIME",             0,      "From msg time.",       10},
+{"to-tm",               18,     "TIME",             0,      "To msg time.",         10},
+
+{"rkey",                19,     "RKEY",              0,     "Regular expression of Key.", 11},
+
+{0,                     0,      0,                  0,      "Print", 12},
+{"list-databases",      20,     0,                  0,      "List databases.",  12},
 
 {0}
 };
@@ -206,18 +214,26 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state)
         arguments->system_flag_mask_notset = arg;
         break;
 
-    case 21:
+    case 15:
         arguments->key = arg;
         break;
-    case 22:
+    case 16:
         arguments->notkey = arg;
         break;
 
-    case 25: // from_tm
+    case 17: // from_tm
         arguments->from_tm = arg;
         break;
-    case 26: // to_tm
+    case 18: // to_tm
         arguments->to_tm = arg;
+        break;
+
+    case 19: // to_tm
+        arguments->rkey = arg;
+        break;
+
+    case 20:
+        arguments->list_databases = 1;
         break;
 
     case ARGP_KEY_ARG:
@@ -545,15 +561,22 @@ PRIVATE BOOL list_recursive_topic_cb(
     list_params_t *list_params = user_data;
 
     partial_counter = 0;
+
+    list_params_t list_params_ = *list_params;
+    struct arguments arguments;
+    memcpy(&arguments, list_params->arguments, sizeof(arguments));
+    list_params_.arguments = &arguments;
+
     pop_last_segment(fullpath);
-    list_params->arguments->topic = pop_last_segment(fullpath);
-    list_params->arguments->database = pop_last_segment(fullpath);
-    list_params->arguments->path = fullpath;
-    _list_messages(list_params);
+    arguments.topic = pop_last_segment(fullpath);
+    arguments.database = pop_last_segment(fullpath);
+    arguments.path = fullpath;
+
+    _list_messages(&list_params_);
 
     printf("\n====> %s %s: %d records\n",
-        list_params->arguments->database,
-        list_params->arguments->topic,
+        arguments.database,
+        arguments.topic,
         partial_counter
     );
 
@@ -570,6 +593,94 @@ PRIVATE int list_recursive_topics(list_params_t *list_params)
         list_params
     );
 
+    return 0;
+}
+
+/***************************************************************************
+ *
+ ***************************************************************************/
+PRIVATE BOOL search_topic_cb(
+    void *user_data,
+    wd_found_type type,     // type found
+    char *fullpath,         // directory+filename found
+    const char *directory,  // directory of found filename
+    char *name,             // dname[255]
+    int level,              // level of tree where file found
+    int index               // index of file inside of directory, relative to 0
+)
+{
+    list_params_t *list_params = user_data;
+
+    partial_counter = 0;
+
+    list_params_t list_params_ = *list_params;
+    struct arguments arguments;
+    memcpy(&arguments, list_params->arguments, sizeof(arguments));
+    list_params_.arguments = &arguments;
+
+    pop_last_segment(fullpath);
+    arguments.topic = pop_last_segment(fullpath);
+    arguments.database = pop_last_segment(fullpath);
+    arguments.path = fullpath;
+
+    if(!list_params->arguments->topic || strcmp(list_params->arguments->topic, arguments.topic)==0) {
+        _list_messages(&list_params_);
+        printf("\n====> %s %s: %d records\n",
+            arguments.database,
+            arguments.topic,
+            partial_counter
+        );
+    }
+
+    return TRUE; // to continue
+}
+
+PRIVATE int search_topics(list_params_t *list_params)
+{
+    walk_dir_tree(
+        list_params->arguments->path,
+        "topic_desc.json",
+        WD_RECURSIVE|WD_MATCH_REGULAR_FILE,
+        search_topic_cb,
+        list_params
+    );
+    return 0;
+}
+
+PRIVATE BOOL search_by_databases_cb(
+    void *user_data,
+    wd_found_type type,     // type found
+    char *fullpath,         // directory+filename found
+    const char *directory,  // directory of found filename
+    char *name,             // dname[255]
+    int level,              // level of tree where file found
+    int index               // index of file inside of directory, relative to 0
+)
+{
+    list_params_t *list_params = user_data;
+    list_params_t list_params_ = *list_params;
+    struct arguments arguments;
+    memcpy(&arguments, list_params->arguments, sizeof(arguments));
+    arguments.path = (char *)directory;
+    arguments.database = 0;
+    arguments.topic = list_params->arguments->topic;
+    list_params_.arguments = &arguments;
+
+    search_topics(&list_params_);
+
+    return TRUE; // to continue
+}
+
+PRIVATE int search_by_databases(list_params_t *list_params)
+{
+    walk_dir_tree(
+        list_params->arguments->path,
+        "__timeranger__.json",
+        WD_RECURSIVE|WD_MATCH_REGULAR_FILE,
+        search_by_databases_cb,
+        list_params
+    );
+    printf("\n");
     return 0;
 }
 
@@ -597,8 +708,7 @@ PRIVATE int list_recursive_topic_messages(list_params_t *list_params)
             return _list_messages(list_params);
         }
 
-        fprintf(stderr, "What Database?\n\nFound:\n\n");
-        list_databases(list_params->arguments->path);
+        search_by_databases(list_params);
         exit(-1);
     }
 
@@ -743,6 +853,13 @@ int main(int argc, char *argv[])
             json_string(arguments.notkey)
         );
     }
+    if(arguments.rkey) {
+        json_object_set_new(
+            match_cond,
+            "rkey",
+            json_string(arguments.rkey)
+        );
+    }
 
     if(json_object_size(match_cond)>0) {
         json_object_set_new(match_cond, "only_md", json_true());
@@ -769,7 +886,9 @@ int main(int argc, char *argv[])
     list_params.arguments = &arguments;
     list_params.match_cond = match_cond;
 
-    if(arguments.recursive) {
+    if(arguments.list_databases) {
+        list_databases(arguments.path);
+    } else if(arguments.recursive) {
         list_recursive_topic_messages(&list_params);
     } else {
         list_topic_messages(&list_params);
