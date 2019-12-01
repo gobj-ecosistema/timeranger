@@ -684,6 +684,47 @@ PRIVATE int search_by_databases(list_params_t *list_params)
     return 0;
 }
 
+PRIVATE BOOL search_by_paths_cb(
+    void *user_data,
+    wd_found_type type,     // type found
+    char *fullpath,         // directory+filename found
+    const char *directory,  // directory of found filename
+    char *name,             // dname[255]
+    int level,              // level of tree where file found
+    int index               // index of file inside of directory, relative to 0
+)
+{
+    list_params_t *list_params = user_data;
+    list_params_t list_params_ = *list_params;
+    struct arguments arguments;
+    memcpy(&arguments, list_params->arguments, sizeof(arguments));
+    arguments.path = (char *)fullpath;
+    arguments.database = 0;
+    arguments.topic = list_params->arguments->topic;
+    list_params_.arguments = &arguments;
+
+    search_by_databases(&list_params_);
+
+    return TRUE; // to continue
+}
+
+PRIVATE int search_by_paths(list_params_t *list_params)
+{
+    if(empty_string(list_params->arguments->database)) {
+        list_params->arguments->database = pop_last_segment(list_params->arguments->path);
+    }
+
+    walk_dir_tree(
+        list_params->arguments->path,
+        list_params->arguments->database,
+        WD_MATCH_DIRECTORY,
+        search_by_paths_cb,
+        list_params
+    );
+    printf("\n");
+    return 0;
+}
+
 /***************************************************************************
  *
  ***************************************************************************/
@@ -697,10 +738,6 @@ PRIVATE int list_recursive_topic_messages(list_params_t *list_params)
     );
 
     if(!file_exists(path_tranger, "__timeranger__.json")) {
-        if(!is_directory(path_tranger)) {
-            fprintf(stderr, "Path not found: '%s'\n\n", path_tranger);
-            exit(-1);
-        }
         if(file_exists(path_tranger, "topic_desc.json")) {
             list_params->arguments->topic = pop_last_segment(path_tranger);
             list_params->arguments->database = pop_last_segment(path_tranger);
@@ -708,7 +745,7 @@ PRIVATE int list_recursive_topic_messages(list_params_t *list_params)
             return _list_messages(list_params);
         }
 
-        search_by_databases(list_params);
+        search_by_paths(list_params);
         exit(-1);
     }
 
