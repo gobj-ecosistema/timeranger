@@ -51,7 +51,7 @@ SET (YUNO_SRCS
 ADD_EXECUTABLE(tranger_migrate ${YUNO_SRCS} ${YUNO_HDRS})
 
 TARGET_LINK_LIBRARIES(tranger_migrate
-    /yuneta/development/output/lib/libghelpersd.a
+    /yuneta/development/output/lib/libghelpers.a
     /yuneta/development/output/lib/libuv.a
     /yuneta/development/output/lib/libjansson.a
     /yuneta/development/output/lib/libunwind.a

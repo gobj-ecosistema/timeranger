@@ -51,7 +51,7 @@ SET (YUNO_SRCS
 ADD_EXECUTABLE(msg2db_list ${YUNO_SRCS} ${YUNO_HDRS})
 
 TARGET_LINK_LIBRARIES(msg2db_list
-    /yuneta/development/output/lib/libghelpersd.a
+    /yuneta/development/output/lib/libghelpers.a
     /yuneta/development/output/lib/libuv.a
     /yuneta/development/output/lib/libjansson.a
     /yuneta/development/output/lib/libunwind.a
