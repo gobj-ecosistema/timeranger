@@ -70,6 +70,7 @@ struct arguments
     char *search_content_key;
     char *search_content_filter;
     char *search_content_text;
+    char *display_format;
 };
 
 typedef struct {
@@ -138,6 +139,7 @@ static struct argp_option options[] = {
 {"search-content-key",  20,     "CONTENT-KEY",      0,      "Content key where to search.", 11},
 {"search-content-filter", 21,   "CONTENT-FILTER",   0,      "Filter to apply to content (clear, base64,)", 11},
 {"search-content-text", 22,     "CONTENT-TEXT",     0,      "Text to search in content.", 11},
+{"diplay-format",       19,     "DISPLAY-FORMAT",   0,      "Display format (json, hexdump,)", 11},
 
 {0}
 };
@@ -236,6 +238,9 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state)
         break;
     case 22: // search-content-text
         arguments->search_content_text = arg;
+        break;
+    case 19: // diplay-format
+        arguments->display_format = arg;
         break;
 
     case ARGP_KEY_ARG:
@@ -376,8 +381,10 @@ PRIVATE int load_record_callback(
     const char *search_content_key = kw_get_str(list, "match_cond`search_content_key", "", 0);
     const char *search_content_filter = kw_get_str(list, "match_cond`search_content_filter", "", 0);
     const char *search_content_text = kw_get_str(list, "match_cond`search_content_text", "", 0);
+    const char *display_format = kw_get_str(list, "match_cond`display_format", "", 0);
 
     GBUFFER *gbuf_value = kw_get_gbuf_value(jn_record, search_content_key, 0, 0);
+printf("%s\n", gbuf_cur_rd_pointer(gbuf_value));
     if(!gbuf_value) {
         JSON_DECREF(jn_record);
         return 0;
@@ -413,11 +420,18 @@ PRIVATE int load_record_callback(
                 json_t *jn_value;
                 json_object_foreach(jn_record, key, jn_value) {
                     if(strcmp(search_content_key, key)==0) {
-                        json_t *jn = json_string(p);
-                        char *s = json2uglystr(jn);
-                        printf("\"%s\": %s\n", key, s);
-                        gbmem_free(s);
-                        json_decref(jn);
+                        if(strcmp(display_format, "json")==0) {
+                            json_t *jn = json_string(p);
+                            char *s = json2uglystr(jn);
+                            printf("\"%s\": %s\n", key, s);
+                            gbmem_free(s);
+                            json_decref(jn);
+
+                        } else { // hexdump
+                            printf("\"%s\":\n", key);
+                            int l = gbuf_leftbytes(gbuf_value);
+                            tdump2(p, l, printf);
+                        }
                     } else {
                         char *s = json2uglystr(jn_value);
                         printf("\"%s\": %s\n", key, s);
@@ -829,6 +843,13 @@ int main(int argc, char *argv[])
             match_cond,
             "search_content_text",
             json_string(arguments.search_content_text)
+        );
+    }
+    if(arguments.display_format) {
+        json_object_set_new(
+            match_cond,
+            "display_format",
+            json_string(arguments.display_format)
         );
     }
 
