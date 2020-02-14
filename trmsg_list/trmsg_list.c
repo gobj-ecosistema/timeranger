@@ -554,12 +554,14 @@ PRIVATE int _list_messages(list_params_t *list_params)
                 list,
                 list_active_callback,
                 0,
+                0,
                 0
             );
         } else if(verbose < 3) {
             trmsg_foreach_instances_messages(
                 list,
                 list_instances_callback,
+                0,
                 0,
                 0
             );
@@ -568,6 +570,7 @@ PRIVATE int _list_messages(list_params_t *list_params)
                 list,
                 FALSE,
                 list_instances_callback,
+                0,
                 0,
                 0
             );

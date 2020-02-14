@@ -384,7 +384,6 @@ PRIVATE int load_record_callback(
     const char *display_format = kw_get_str(list, "match_cond`display_format", "", 0);
 
     GBUFFER *gbuf_value = kw_get_gbuf_value(jn_record, search_content_key, 0, 0);
-printf("%s\n", gbuf_cur_rd_pointer(gbuf_value));
     if(!gbuf_value) {
         JSON_DECREF(jn_record);
         return 0;
