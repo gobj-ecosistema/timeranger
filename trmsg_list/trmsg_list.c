@@ -544,10 +544,7 @@ PRIVATE int _list_messages(list_params_t *list_params)
         match_cond
     );
     if(list) {
-
         //1=active, 2=instances, 3=message(active+instances)
-
-
         kw_set_dict_value(list, "verbose", json_integer(verbose));
         if(verbose < 2) {
             trmsg_foreach_active_messages(
