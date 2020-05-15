@@ -410,7 +410,7 @@ PRIVATE BOOL list_recursive_db_cb(
         list_params2.verbose
     );
 
-    printf("\n====> %s: %d records\n", name, partial_counter);
+    printf("====> %s: %d records\n\n", name, partial_counter);
 
     return TRUE; // to continue
 }
@@ -609,7 +609,7 @@ int main(int argc, char *argv[])
     dt = ts_diff2(st, et);
 
     setlocale(LC_ALL, "");
-    printf("\n====> Total: %'d records; %'f seconds; %'lu op/sec\n\n",
+    printf("====> Total: %'d records; %'f seconds; %'lu op/sec\n\n",
         total_counter,
         dt,
         (unsigned long)(((double)total_counter)/dt)

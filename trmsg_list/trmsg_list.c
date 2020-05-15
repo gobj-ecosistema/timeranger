@@ -646,7 +646,7 @@ PRIVATE BOOL list_recursive_topic_cb(
     list_params->arguments->path = fullpath;
     _list_messages(list_params);
 
-    printf("\n====> %s %s: %d records\n",
+    printf("====> %s %s: %d records\n\n",
         list_params->arguments->database,
         list_params->arguments->topic,
         partial_counter
@@ -879,7 +879,7 @@ int main(int argc, char *argv[])
     dt = ts_diff2(st, et);
 
     setlocale(LC_ALL, "");
-    printf("\n====> Total: %'d records; %'f seconds; %'lu op/sec\n\n",
+    printf("====> Total: %'d records; %'f seconds; %'lu op/sec\n\n",
         total_counter,
         dt,
         (unsigned long)(((double)total_counter)/dt)

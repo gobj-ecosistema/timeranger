@@ -589,7 +589,7 @@ PRIVATE BOOL migrate_recursive_topic_cb(
     list_params->arguments->path = fullpath;
     _migrate_messages(list_params);
 
-    printf("\n====> %s %s: %d records\n",
+    printf("====> %s %s: %d records\n\n",
         list_params->arguments->database,
         list_params->arguments->topic,
         partial_counter
@@ -843,7 +843,7 @@ int main(int argc, char *argv[])
     dt = ts_diff2(st, et);
 
     setlocale(LC_ALL, "");
-    printf("\n====> Migrate: %'d records of %'d records; %'f seconds; %'lu op/sec\n\n",
+    printf("====> Migrate: %'d records of %'d records; %'f seconds; %'lu op/sec\n\n",
         migrate_counter,
         total_counter,
         dt,
