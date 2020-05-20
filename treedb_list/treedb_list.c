@@ -38,7 +38,6 @@ typedef struct {
     char path[256];
     char database[256];
     char topic[256];
-    json_t *jn_ids;
     json_t *jn_filter;
     json_t *jn_options;
     int verbose;
@@ -235,7 +234,6 @@ PRIVATE int _list_messages(
     char *path, // must contains the full path of tranger database
     char *treedb_name, // must contains the treedb name
     char *topic,
-    json_t *jn_ids,
     json_t *jn_filter,
     json_t *jn_options,
     int verbose)
@@ -276,7 +274,6 @@ PRIVATE int _list_messages(
                     continue;
                 }
             }
-            JSON_INCREF(jn_ids);
             JSON_INCREF(jn_filter);
             JSON_INCREF(jn_options);
 
@@ -284,7 +281,6 @@ PRIVATE int _list_messages(
                 tranger,
                 treedb_name,
                 topic_name,
-                jn_ids,
                 jn_filter,
                 jn_options,
                 0  // match_fn
@@ -315,7 +311,6 @@ PRIVATE int list_messages(
     char *path,
     char *database,
     char *topic,
-    json_t *jn_ids,
     json_t *jn_filter,
     json_t *jn_options,
     int verbose)
@@ -349,7 +344,6 @@ PRIVATE int list_messages(
             path_tranger,
             database,
             topic,
-            jn_ids,
             jn_filter,
             jn_options,
             verbose
@@ -363,7 +357,6 @@ PRIVATE int list_messages(
             path_tranger,
             database_name,
             topic,
-            jn_ids,
             jn_filter,
             jn_options,
             verbose
@@ -404,7 +397,6 @@ PRIVATE BOOL list_recursive_db_cb(
         list_params2.path,
         list_params2.database,
         list_params2.topic,
-        list_params2.jn_ids,
         list_params2.jn_filter,
         list_params2.jn_options,
         list_params2.verbose
@@ -435,7 +427,6 @@ PRIVATE int list_recursive_msg(
     char *path,
     char *database,
     char *topic,
-    json_t *jn_ids,
     json_t *jn_filter,
     json_t *jn_options,
     int verbose)
@@ -450,7 +441,6 @@ PRIVATE int list_recursive_msg(
     if(!empty_string(topic)) {
         snprintf(list_params.topic, sizeof(list_params.topic), "%s", topic);
     }
-    list_params.jn_ids = jn_ids;
     list_params.jn_filter = jn_filter;
     list_params.jn_options = jn_options;
 
@@ -537,20 +527,15 @@ int main(int argc, char *argv[])
     /*----------------------------------*
      *  Ids
      *----------------------------------*/
-    json_t *jn_ids = json_array();
+    json_t *jn_filter = json_array();
     if(arguments.id) {
         int list_size;
         const char **ss = split2(arguments.id, ", ", &list_size);
         for(int i=0; i<list_size; i++) {
-            json_array_append_new(jn_ids, json_string(ss[i]));
+            json_array_append_new(jn_filter, json_string(ss[i]));
         }
         split_free2(ss);
     }
-
-    /*----------------------------------*
-     *  Filter
-     *----------------------------------*/
-    json_t *jn_filter = json_object(); // TODO
 
     /*----------------------------------*
      *  Options
@@ -581,7 +566,6 @@ int main(int argc, char *argv[])
             arguments.path,
             arguments.database,
             arguments.topic,
-            jn_ids,
             jn_filter,
             jn_options,
             arguments.verbose
@@ -591,13 +575,11 @@ int main(int argc, char *argv[])
             arguments.path,
             arguments.database,
             arguments.topic,
-            jn_ids,
             jn_filter,
             jn_options,
             arguments.verbose
         );
     }
-    JSON_DECREF(jn_ids);
     JSON_DECREF(jn_filter);
     JSON_DECREF(jn_options);
 
