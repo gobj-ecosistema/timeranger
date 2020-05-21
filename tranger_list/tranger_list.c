@@ -625,7 +625,7 @@ PRIVATE BOOL search_topic_cb(
 
     if(!list_params->arguments->topic || strcmp(list_params->arguments->topic, arguments.topic)==0) {
         _list_messages(&list_params_);
-        printf("====> %s %s: %d records\n",
+        printf("====> %s %s: %d records\n\n",
             arguments.database,
             arguments.topic,
             partial_counter
