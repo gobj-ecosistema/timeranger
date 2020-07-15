@@ -108,7 +108,7 @@ static struct argp_option options[] = {
 {"recursive",           'r',    0,                  0,      "List recursively.",  2},
 
 {0,                     0,      0,                  0,      "Presentation",     3},
-{"verbose",             'l',    "LEVEL",            0,      "Verbose level (0=total, 1=active, 2=instances, 3=message(active+instances), 4=message(active+ #of instances))", 3},
+{"verbose",             'l',    "LEVEL",            0,      "Verbose level (0=total, 1=active, 2=instances, 3=message(active+instances), 4=message(active+ #of instances), 5=message(active+ #of instances+ #field_count))", 3},
 {"mode",                'm',    "MODE",             0,      "Mode: form or table", 3},
 {"fields",              'f',    "FIELDS",           0,      "Print only this fields", 3},
 
@@ -348,7 +348,7 @@ PRIVATE int list_active_callback(
         table_mode = TRUE;
     }
 
-    if(verbose == 0) {
+    if(verbose == 0 && !table_mode) {
         JSON_DECREF(record);
         return 0;
     }
@@ -544,9 +544,10 @@ PRIVATE int _list_messages(list_params_t *list_params)
         match_cond
     );
     if(list) {
-        //1=active, 2=instances, 3=message(active+instances)
+        //0=total, 1=active, 2=instances, 3=message(active+instances), 4=message(active+ #of instances), 5=message(active+ #of instances+ #field_count)
         kw_set_dict_value(list, "verbose", json_integer(verbose));
-        if(verbose < 2) {
+        switch(verbose) {
+        case 1:
             trmsg_foreach_active_messages(
                 list,
                 list_active_callback,
@@ -554,7 +555,8 @@ PRIVATE int _list_messages(list_params_t *list_params)
                 0,
                 0
             );
-        } else if(verbose < 3) {
+            break;
+        case 2:
             trmsg_foreach_instances_messages(
                 list,
                 list_instances_callback,
@@ -562,7 +564,8 @@ PRIVATE int _list_messages(list_params_t *list_params)
                 0,
                 0
             );
-        } else if(verbose < 4) {
+            break;
+        case 3:
             trmsg_foreach_messages(
                 list,
                 FALSE,
@@ -571,18 +574,65 @@ PRIVATE int _list_messages(list_params_t *list_params)
                 0,
                 0
             );
-        } else {
-            json_int_t total = 0;
-            json_t *messages = trmsg_get_messages(list);
-            const char *key;
-            json_t *message;
-            json_object_foreach(messages, key, message) {
-                json_t *instances = json_object_get(message, "instances");
-                json_int_t n = json_array_size(instances);
-                printf("Key: %s, instances: %lld\n", key, n);
-                total += n;
+            break;
+        case 4:
+            {
+                json_int_t total = 0;
+                json_t *messages = trmsg_get_messages(list);
+                const char *key;
+                json_t *message;
+                json_object_foreach(messages, key, message) {
+                    json_t *instances = json_object_get(message, "instances");
+                    json_int_t n = json_array_size(instances);
+                    printf("Key: %s, instances: %lld\n", key, n);
+                    total += n;
+                }
+                printf("Total instances: %lld\n", total);
             }
-            printf("Total instances: %lld\n", total);
+            break;
+        case 5:
+            {
+                int list_size;
+                const char **fields = split2(list_params->arguments->fields, ",", &list_size);
+
+                json_int_t total = 0;
+                json_t *messages = trmsg_get_messages(list);
+                const char *key;
+                json_t *message;
+                json_object_foreach(messages, key, message) {
+                    json_t *instances = json_object_get(message, "instances");
+                    json_int_t n = json_array_size(instances);
+                    printf("Key: %s, instances: %lld\n", key, n);
+                    total += n;
+
+                    json_t *jn_dict = json_object();
+                    for(int i=0; i<list_size; i++) {
+                        const char *field = *(fields +i);
+                        json_t *x = json_object();
+                        json_object_set_new(jn_dict, field, x);
+
+                        int idx; json_t *instance;
+                        json_array_foreach(instances, idx, instance) {
+                            json_t *v = kw_get_dict_value(instance, field, 0, 0);
+                            if(v) {
+                                char *s = jn2string(v);
+                                json_int_t z = kw_get_int(x, s, 0, KW_CREATE);
+                                z++;
+                                json_object_set_new(x, s, json_integer(z));
+                                gbmem_free(s);
+                            }
+                        }
+                    }
+                    print_json2("", jn_dict);
+                    printf("\n");
+                    json_decref(jn_dict);
+                }
+                printf("Total instances: %lld\n", total);
+                split_free2(fields);
+            }
+            break;
+        default:
+            break;
         }
 
         trmsg_close_list(tranger, list);
