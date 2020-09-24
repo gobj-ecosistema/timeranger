@@ -37,7 +37,7 @@
 /*
  *  Used by main to communicate with parse_opt.
  */
-#define MIN_ARGS 1
+#define MIN_ARGS 0
 #define MAX_ARGS 1
 struct arguments
 {
@@ -132,6 +132,13 @@ int main(int argc, char *argv[])
     timestamp_t timestamp;
     int offset;
 
+    char now[32];
+    if(arguments.args[0]==0) {
+        time_t t;
+        time(&t);
+        snprintf(now, sizeof(now), "%ld", t);
+        arguments.args[0] = now;
+    }
     if(all_numbers(arguments.args[0])) {
         timestamp = atoll(arguments.args[0]);
     } else {
