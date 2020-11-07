@@ -23,7 +23,14 @@
  *              Constants
  ***************************************************************************/
 #define NAME        "tranger_search"
-#define DOC         "Search messages in TimeRanger database."
+#define DOC         "Search messages in TimeRanger database.\n" \
+                    "Example: \n" \
+                    "tranger_search \\\n" \
+                    "  -a /yuneta/store/queues/frames/{{yuno_role}}^{{yuno_name}}/frames \\\n" \
+                    "  --search-content-filter=base64 \\\n" \
+                    "  --from-rowid=-10 \\\n" \
+                    "  --search-content-key=frame64 \\\n" \
+                    "  -l3"
 
 #define VERSION     __ghelpers_version__
 #define SUPPORT     "<niyamaka at yuneta.io>"
