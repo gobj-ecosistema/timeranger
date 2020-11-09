@@ -69,6 +69,7 @@ struct arguments
     char *to_tm;
 
     char *rkey;
+    char *filter;
 
     int list_databases;
 };
@@ -134,10 +135,11 @@ static struct argp_option options[] = {
 {"from-tm",             17,     "TIME",             0,      "From msg time.",       10},
 {"to-tm",               18,     "TIME",             0,      "To msg time.",         10},
 
-{"rkey",                19,     "RKEY",              0,     "Regular expression of Key.", 11},
+{"rkey",                19,     "RKEY",             0,      "Regular expression of Key.", 11},
+{"filter",              20,     "FILTER",           0,      "Filter of fields in json dict string", 11},
 
 {0,                     0,      0,                  0,      "Print", 12},
-{"list-databases",      20,     0,                  0,      "List databases.",  12},
+{"list-databases",      21,     0,                  0,      "List databases.",  12},
 
 {0}
 };
@@ -232,7 +234,11 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state)
         arguments->rkey = arg;
         break;
 
-    case 20:
+    case 20: // filter
+        arguments->filter= arg;
+        break;
+
+    case 21:
         arguments->list_databases = 1;
         break;
 
@@ -364,9 +370,13 @@ PRIVATE int load_record_callback(
     print_md1_record(tranger, topic, md_record, title, sizeof(title));
 
     BOOL table_mode = FALSE;
+    json_t *match_cond = kw_get_dict(list, "match_cond", 0, KW_REQUIRED);
     if(!empty_string(arguments.mode) || !empty_string(arguments.fields)) {
         verbose = 3;
         table_mode = TRUE;
+    }
+    if(kw_has_key(match_cond, "filter")) {
+        verbose = 3;
     }
 
     if(verbose == 0) {
@@ -387,6 +397,24 @@ PRIVATE int load_record_callback(
 
     if(!jn_record) {
         jn_record = tranger_read_record_content(tranger, topic, md_record);
+    }
+
+    if(kw_has_key(match_cond, "filter")) {
+        verbose = 3;
+        json_t *fields2match = kw_get_dict(match_cond, "filter", 0, KW_REQUIRED);
+        json_t *record1 = kw_clone_by_keys(json_incref(jn_record), json_incref(fields2match), FALSE);
+        if(!kwid_compare_records(
+            record1,        // NOT owned
+            fields2match,   // NOT owned
+            FALSE,          // BOOL without_metadata
+            FALSE,          // without_private
+            FALSE           // verbose
+        )) {
+            JSON_DECREF(record1);
+            JSON_DECREF(jn_record);
+            return 0;
+        }
+        JSON_DECREF(record1);
     }
 
     if(table_mode) {
@@ -895,6 +923,13 @@ int main(int argc, char *argv[])
             match_cond,
             "rkey",
             json_string(arguments.rkey)
+        );
+    }
+    if(arguments.filter) {
+        json_object_set_new(
+            match_cond,
+            "filter",
+            legalstring2json(arguments.filter, TRUE)
         );
     }
 
