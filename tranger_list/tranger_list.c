@@ -410,6 +410,8 @@ PRIVATE int load_record_callback(
             FALSE,          // without_private
             FALSE           // verbose
         )) {
+            total_counter--;
+            partial_counter--;
             JSON_DECREF(record1);
             JSON_DECREF(jn_record);
             return 0;
