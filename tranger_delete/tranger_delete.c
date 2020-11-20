@@ -532,6 +532,22 @@ PRIVATE int _list_messages(list_params_t *list_params)
         exit(-1);
     }
 
+    if(delete) {
+        char answer[30];
+
+        printf("%sDo a backup!%s Records will be unrecovery, %sAre you sure to delete?%s (yes/no) ",
+            On_Yellow BWhite,
+            On_Green BWhite,
+            On_Red BWhite,
+            Color_Off
+        );
+        scanf("%s", answer);
+        if(strcmp(answer, "yes")!=0) {
+            printf("Write 'yes' to continue\n");
+            exit(0);
+        }
+    }
+
     /*-------------------------------*
      *  Open topic
      *-------------------------------*/
@@ -1002,7 +1018,8 @@ int main(int argc, char *argv[])
     dt = ts_diff2(st, et);
 
     setlocale(LC_ALL, "");
-    printf("====> Total: %'d records; %'f seconds; %'lu op/sec\n\n",
+    printf("====> Total %s: %'d records; %'f seconds; %'lu op/sec\n\n",
+        arguments.delete?"deleted":"",
         total_counter,
         dt,
         (unsigned long)(((double)total_counter)/dt)
