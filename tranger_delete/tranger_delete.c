@@ -1018,12 +1018,24 @@ int main(int argc, char *argv[])
     dt = ts_diff2(st, et);
 
     setlocale(LC_ALL, "");
-    printf("====> Total %s: %'d records; %'f seconds; %'lu op/sec\n\n",
-        arguments.delete?"deleted":"",
-        total_counter,
-        dt,
-        (unsigned long)(((double)total_counter)/dt)
-    );
+
+    if(total_counter) {
+        printf("====> %sTotal %s: %'d records;%s %'f seconds; %'lu op/sec\n\n",
+            On_Red BWhite,
+            arguments.delete?"deleted":"",
+            total_counter,
+            Color_Off,
+            dt,
+            (unsigned long)(((double)total_counter)/dt)
+        );
+    } else {
+        printf("====> Total %s: %'d records; %'f seconds; %'lu op/sec\n\n",
+            arguments.delete?"deleted":"",
+            total_counter,
+            dt,
+            (unsigned long)(((double)total_counter)/dt)
+        );
+    }
 
     gbmem_shutdown();
     return 0;
