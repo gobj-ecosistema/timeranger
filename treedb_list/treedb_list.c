@@ -261,7 +261,7 @@ PRIVATE int _list_messages(
         0, // jn_schema_sample
         "persistent"
     );
-    treedb_set_callback(
+    treedb_set_load_node_callback(
         tranger,
         treedb_name,
         0
