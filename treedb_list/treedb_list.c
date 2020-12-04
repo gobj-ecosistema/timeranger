@@ -269,6 +269,10 @@ PRIVATE int _list_messages(
     } else {
         const char *topic_name; json_t *topic_data;
         json_object_foreach(treedb, topic_name, topic_data) {
+            if(!json_is_object(topic_data)) {
+                // Can be __schema_version__ or other attribute
+                continue;
+            }
             if(!empty_string(topic)) {
                 if(strcmp(topic, topic_name)!=0) {
                     continue;
