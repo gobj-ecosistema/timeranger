@@ -261,6 +261,11 @@ PRIVATE int _list_messages(
         0, // jn_schema_sample
         "persistent"
     );
+    treedb_set_callback(
+        tranger,
+        treedb_name,
+        0
+    );
 
     if(arguments.print_tranger) {
         print_json(tranger);
