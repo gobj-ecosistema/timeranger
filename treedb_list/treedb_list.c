@@ -264,6 +264,7 @@ PRIVATE int _list_messages(
     treedb_set_callback(
         tranger,
         treedb_name,
+        0,
         0
     );
 
