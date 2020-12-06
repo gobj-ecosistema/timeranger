@@ -358,7 +358,7 @@ PRIVATE int load_record_callback(
     json_t *topic,
     json_t *list,
     md_record_t *md_record,
-    json_t *jn_record
+    json_t *jn_record // owned
 )
 {
     static BOOL first_time = TRUE;
