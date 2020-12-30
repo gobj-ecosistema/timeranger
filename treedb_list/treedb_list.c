@@ -64,7 +64,6 @@ struct arguments
 
     int print_tranger;
     int print_treedb;
-    int expand_nodes;
 };
 
 /***************************************************************************
@@ -105,7 +104,7 @@ static struct argp_option options[] = {
 {"print-treedb",        6,      0,                  0,      "Print treedb json", 3},
 
 {0,                     0,      0,                  0,      "TreeDb options",       30},
-{"expand",              30,     0,                  0,      "Expand nodes.",         30},
+//{"expand",              30,     0,                  0,      "Expand nodes.",         30},
 
 {0}
 };
@@ -160,7 +159,7 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state)
         break;
 
     case 30:
-        arguments->expand_nodes = 1;
+        //arguments->expand_nodes = 1;
         break;
 
     case ARGP_KEY_ARG:
@@ -551,13 +550,13 @@ int main(int argc, char *argv[])
      *  Options
      *----------------------------------*/
     json_t *jn_options = json_object();
-    if(!arguments.expand_nodes) {
-        json_object_set_new(
-            jn_options,
-            "collapsed",
-            json_true()
-        );
-    }
+//     if(!arguments.expand_nodes) {
+//         json_object_set_new(
+//             jn_options,
+//             "collapsed",
+//             json_true()
+//         );
+//     }
 
     /*------------------------*
      *      Do your work
