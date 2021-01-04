@@ -267,6 +267,7 @@ PRIVATE int _list_messages(
         0
     );
 
+
     if(arguments.print_tranger) {
         print_json(tranger);
     } else if(arguments.print_treedb) {
@@ -284,16 +285,28 @@ PRIVATE int _list_messages(
                 }
             }
             JSON_INCREF(jn_filter);
-            JSON_INCREF(jn_options);
 
-            json_t *node_list = treedb_list_nodes( // Return MUST be decref
+            json_t *iter = treedb_list_nodes( // Return MUST be decref
                 tranger,
                 treedb_name,
                 topic_name,
                 jn_filter,
-                jn_options,
                 0  // match_fn
             );
+
+            json_t *node_list = json_array();
+            int idx; json_t *node;
+            json_array_foreach(iter, idx, node) {
+                json_array_append_new(
+                    node_list,
+                    node_collapsed_view(
+                        tranger,
+                        node,
+                        json_incref(jn_options)
+                    )
+                );
+            }
+            json_decref(iter);
 
             print_json2(topic_name, node_list);
 
@@ -549,7 +562,10 @@ int main(int argc, char *argv[])
     /*----------------------------------*
      *  Options
      *----------------------------------*/
-    json_t *jn_options = json_object();
+    json_t *jn_options = 0; //json_object();
+    jn_options = json_pack("{s:b}",
+        "list-dict", 1
+    );
 //     if(!arguments.expand_nodes) {
 //         json_object_set_new(
 //             jn_options,
