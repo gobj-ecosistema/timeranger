@@ -564,7 +564,7 @@ int main(int argc, char *argv[])
      *----------------------------------*/
     json_t *jn_options = 0; //json_object();
     jn_options = json_pack("{s:b}",
-        "list-dict", 1
+        "only-id", 1
     );
 //     if(!arguments.expand_nodes) {
 //         json_object_set_new(
