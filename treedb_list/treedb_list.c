@@ -362,6 +362,10 @@ PRIVATE int list_messages(
     }
 
     if(file_exists(path_tranger, database)) {
+        char *p = strstr(database, ".treedb_schema.json");
+        if(p) {
+            *p = 0;
+        }
         return _list_messages(
             path_tranger,
             database,
@@ -375,6 +379,10 @@ PRIVATE int list_messages(
     char database_name[NAME_MAX];
     snprintf(database_name, sizeof(database_name), "%s.treedb_schema.json", database);
     if(file_exists(path_tranger, database_name)) {
+        char *p = strstr(database_name, ".treedb_schema.json");
+        if(p) {
+            *p = 0;
+        }
         return _list_messages(
             path_tranger,
             database_name,
