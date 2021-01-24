@@ -11,7 +11,5 @@ Utility for migrate json to json records in a timeranger database.
 License
 -------
 
-Copyright (c) 2019, Niyamaka.
-
-TimeRanger is released under terms
-of `The MIT License <http://www.opensource.org/licenses/mit-license>`_
+Licensed under the  `The MIT License <http://www.opensource.org/licenses/mit-license>`_.
+See LICENSE.txt in the source distribution for details.
