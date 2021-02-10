@@ -74,7 +74,7 @@ static char args_doc[] = "";
 static struct argp_option options[] = {
 /*-name-----------------key-----arg-----------------flags---doc-----------------group */
 {"time_t",              't',    "TIME_T",           0,      "Time Epoch",       1},
-{"type",                'y',    "TYPE",             0,      "hours,days,weeks,months,years",2},
+{"type",                'p',    "TYPE",             0,      "hours,days,weeks,months,years",2},
 {"range",               'r',    "RANGE",            0,      "Range.",           3},
 {"TZ",                  'z',    "TIME_ZONE",        0,      "Time zone.",       4},
 {0}
@@ -102,11 +102,18 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state)
     switch (key) {
     case 't':
         if(arg) {
-            arguments->t = atol(arg);
+            if(all_numbers(arg)) {
+                arguments->t = atoll(arg);
+            } else {
+                timestamp_t timestamp;
+                int offset;
+                parse_date_basic(arg, &timestamp, &offset);
+                arguments->t = timestamp;
+            }
         }
         break;
 
-    case 'y':
+    case 'p':
         arguments->type = arg;
         break;
 

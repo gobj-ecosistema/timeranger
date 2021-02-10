@@ -42,6 +42,7 @@
 struct arguments
 {
     char *args[MAX_ARGS+1];     /* positional args */
+    char *TZ;
 };
 
 /***************************************************************************
@@ -68,6 +69,7 @@ static char args_doc[] = "TIME_T";
  */
 static struct argp_option options[] = {
 /*-name-----------------key-----arg-----------------flags---doc-----------------group */
+{"TZ",                  'z',    "TIME_ZONE",        0,      "Time zone.",       4},
 {0}
 };
 
@@ -97,6 +99,10 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state)
             argp_usage (state);
         }
         arguments->args[state->arg_num] = arg;
+        break;
+
+    case 'z':
+        arguments->TZ = arg;
         break;
 
     case ARGP_KEY_END:
@@ -149,14 +155,32 @@ int main(int argc, char *argv[])
 
     struct tm *tm;
     char utc_stamp[164];
-    char local_stamp[164];
+
     tm = gmtime((time_t *)&timestamp);
     strftime(utc_stamp, sizeof(utc_stamp), "%Y-%m-%dT%H:%M:%S%z", tm);
-    tm = localtime((time_t *)&timestamp);
-    strftime(local_stamp, sizeof(local_stamp), "%Y-%m-%dT%H:%M:%S%z", tm);
 
-    //printf("gmtime of %'"PRItime": %s\n", timestamp, utc_stamp);
-    printf("gmtime of %"PRItime": %s, %s, yday %d\n", timestamp, utc_stamp, local_stamp, tm->tm_yday);
+    if(empty_string(arguments.TZ)) {
+        char local_stamp[164];
+        tm = localtime((time_t *)&timestamp);
+        strftime(local_stamp, sizeof(local_stamp), "%Y-%m-%dT%H:%M:%S%z", tm);
 
+        printf("gmtime of %"PRItime": UTC %s, LOCAL %s, yday %d\n",
+            timestamp, utc_stamp, local_stamp, tm->tm_yday
+        );
+    } else {
+        char local_stamp[164];
+        tm = localtime((time_t *)&timestamp);
+        strftime(local_stamp, sizeof(local_stamp), "%Y-%m-%dT%H:%M:%S%z", tm);
+
+        char tz_stamp[164];
+        time_t offset;
+        struct tm tm2;
+        gmtime2timezone(timestamp, arguments.TZ, &tm2, &offset);
+        strftime(tz_stamp, sizeof(tz_stamp), "%FT%T%z", &tm2);
+
+        printf("gmtime of %"PRItime": UTC %s, %s %s, LOCAL %s, yday %d\n",
+            timestamp, utc_stamp, arguments.TZ, tz_stamp, local_stamp, tm2.tm_yday
+        );
+    }
     return 0;
 }
