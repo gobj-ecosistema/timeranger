@@ -113,7 +113,7 @@ static struct argp_option options[] = {
 {"recursive",           'r',    0,                  0,      "List recursively.",  2},
 
 {0,                     0,      0,                  0,      "Presentation",     3},
-{"verbose",             'l',    "LEVEL",            0,      "Verbose level (0=total, 1=metadata, 2=metadata+path, 3=metadata+record)", 3},
+{"verbose",             'l',    "LEVEL",            0,      "Verbose level (empty=total, 0=metadata, 1=metadata, 2=metadata+path, 3=metadata+record)", 3},
 {"mode",                'm',    "MODE",             0,      "Mode: form or table", 3},
 {"fields",              'f',    "FIELDS",           0,      "Print only this fields", 3},
 
@@ -379,7 +379,13 @@ PRIVATE int load_record_callback(
         verbose = 3;
     }
 
+    if(verbose < 0) {
+        JSON_DECREF(jn_record);
+        return 0;
+    }
     if(verbose == 0) {
+        print_md0_record(tranger, topic, md_record, title, sizeof(title));
+        printf("%s\n", title);
         JSON_DECREF(jn_record);
         return 0;
     }
@@ -421,6 +427,7 @@ PRIVATE int load_record_callback(
 
     if(table_mode) {
         if(!empty_string(arguments.fields)) {
+            print_md0_record(tranger, topic, md_record, title, sizeof(title));
             const char ** keys = 0;
             keys = split2(arguments.fields, ", ", 0);
             json_t *jn_record_with_fields = kw_clone_by_path(
@@ -794,6 +801,7 @@ int main(int argc, char *argv[])
      *  Default values
      */
     memset(&arguments, 0, sizeof(arguments));
+    arguments.verbose = -1;
 
     /*
      *  Parse arguments
