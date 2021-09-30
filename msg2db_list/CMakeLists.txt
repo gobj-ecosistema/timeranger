@@ -60,6 +60,7 @@ TARGET_LINK_LIBRARIES(msg2db_list
     pthread dl  # used by libuv
     lzma        # used by libunwind
     uuid
+    m
 )
 
 ##############################################

@@ -60,6 +60,7 @@ TARGET_LINK_LIBRARIES(treedb_list
     pthread dl  # used by libuv
     lzma        # used by libunwind
     uuid
+    m
 )
 
 ##############################################

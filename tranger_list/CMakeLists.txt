@@ -59,7 +59,7 @@ TARGET_LINK_LIBRARIES(tranger_list
 
     pthread dl  # used by libuv
     lzma        # used by libunwind
-
+    m
 )
 
 ##############################################
