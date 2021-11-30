@@ -61,6 +61,7 @@ TARGET_LINK_LIBRARIES(msg2db_list
     lzma        # used by libunwind
     uuid
     m
+    util
 )
 
 ##############################################

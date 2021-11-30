@@ -61,6 +61,7 @@ TARGET_LINK_LIBRARIES(treedb_list
     lzma        # used by libunwind
     uuid
     m
+    util
 )
 
 ##############################################

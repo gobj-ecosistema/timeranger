@@ -60,6 +60,7 @@ TARGET_LINK_LIBRARIES(tranger_migrate
     pthread dl  # used by libuv
     lzma        # used by libunwind
     m
+    util
 )
 
 ##############################################

@@ -61,6 +61,7 @@ TARGET_LINK_LIBRARIES(json_diff
     lzma        # used by libunwind
     uuid
     m
+    util
 )
 
 ##############################################

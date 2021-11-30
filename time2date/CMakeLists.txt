@@ -60,6 +60,7 @@ TARGET_LINK_LIBRARIES(time2date
     pthread dl  # used by libuv
     lzma        # used by libunwind
     m
+    util
 )
 
 ##############################################
