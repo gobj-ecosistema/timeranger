@@ -2,6 +2,7 @@
 #   CMake
 ##############################################
 project(msg2db_list C)
+cmake_minimum_required(VERSION 3.0)
 include(CheckIncludeFiles)
 include(CheckSymbolExists)
 
