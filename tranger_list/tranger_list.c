@@ -23,7 +23,7 @@
  *              Constants
  ***************************************************************************/
 #define NAME        "tranger_list"
-#define DOC         "List messages of TimeRanger database."
+#define DOC         "List messages of TimeRanger database.\n Examples TIME:\n  1.seconds (minutes,hours,days,weeks,months,years)"
 
 #define VERSION     __ghelpers_version__
 #define SUPPORT     "<niyamaka at yuneta.io>"
@@ -840,41 +840,45 @@ int main(int argc, char *argv[])
 
     if(arguments.from_t) {
         timestamp_t timestamp;
-        int offset;
         if(all_numbers(arguments.from_t)) {
             timestamp = atoll(arguments.from_t);
         } else {
-            parse_date_basic(arguments.from_t, &timestamp, &offset);
+            //int offset;
+            //parse_date_basic(arguments.from_t, &timestamp, &offset);
+            timestamp = approxidate(arguments.from_t);
         }
         json_object_set_new(match_cond, "from_t", json_integer(timestamp));
     }
     if(arguments.to_t) {
         timestamp_t timestamp;
-        int offset;
         if(all_numbers(arguments.to_t)) {
             timestamp = atoll(arguments.to_t);
         } else {
-            parse_date_basic(arguments.to_t, &timestamp, &offset);
+            //int offset;
+            //parse_date_basic(arguments.to_t, &timestamp, &offset);
+            timestamp = approxidate(arguments.to_t);
         }
         json_object_set_new(match_cond, "to_t", json_integer(timestamp));
     }
     if(arguments.from_tm) {
         timestamp_t timestamp;
-        int offset;
         if(all_numbers(arguments.from_tm)) {
             timestamp = atoll(arguments.from_tm);
         } else {
-            parse_date_basic(arguments.from_tm, &timestamp, &offset);
+            //int offset;
+            //parse_date_basic(arguments.from_tm, &timestamp, &offset);
+            timestamp = approxidate(arguments.from_tm);
         }
         json_object_set_new(match_cond, "from_tm", json_integer(timestamp));
     }
     if(arguments.to_tm) {
         timestamp_t timestamp;
-        int offset;
         if(all_numbers(arguments.to_tm)) {
             timestamp = atoll(arguments.to_tm);
         } else {
-            parse_date_basic(arguments.to_tm, &timestamp, &offset);
+            //int offset;
+            //parse_date_basic(arguments.to_tm, &timestamp, &offset);
+            timestamp = approxidate(arguments.to_tm);
         }
         json_object_set_new(match_cond, "to_tm", json_integer(timestamp));
     }
