@@ -63,7 +63,7 @@ if(NOT CYGWIN)
         m
         util
     )
-else(CYGWIN)
+else(NOT CYGWIN)
     TARGET_LINK_LIBRARIES(tranger_list
         /yuneta/development/output/lib/libghelpers.a
         /yuneta/development/output/lib/libuv.a
@@ -76,7 +76,7 @@ else(CYGWIN)
         util
         argp
     )
-endif(CYGWIN)
+endif(NOT CYGWIN)
 
 ##############################################
 #   Installation
