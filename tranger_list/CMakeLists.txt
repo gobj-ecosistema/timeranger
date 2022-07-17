@@ -50,18 +50,33 @@ SET (YUNO_SRCS
 ##############################################
 ADD_EXECUTABLE(tranger_list ${YUNO_SRCS} ${YUNO_HDRS})
 
-TARGET_LINK_LIBRARIES(tranger_list
-    /yuneta/development/output/lib/libghelpers.a
-    /yuneta/development/output/lib/libuv.a
-    /yuneta/development/output/lib/libjansson.a
-    /yuneta/development/output/lib/libunwind.a
-    /yuneta/development/output/lib/libpcre2-8.a
+if(NOT CYGWIN)
+    TARGET_LINK_LIBRARIES(tranger_list
+        /yuneta/development/output/lib/libghelpers.a
+        /yuneta/development/output/lib/libuv.a
+        /yuneta/development/output/lib/libjansson.a
+        /yuneta/development/output/lib/libunwind.a
+        /yuneta/development/output/lib/libpcre2-8.a
 
-    pthread dl  # used by libuv
-    lzma        # used by libunwind
-    m
-    util
-)
+        pthread dl  # used by libuv
+        lzma        # used by libunwind
+        m
+        util
+    )
+else(CYGWIN)
+    TARGET_LINK_LIBRARIES(tranger_list
+        /yuneta/development/output/lib/libghelpers.a
+        /yuneta/development/output/lib/libuv.a
+        /yuneta/development/output/lib/libjansson.a
+
+        libpcre2-8
+        pthread dl  # used by libuv
+        lzma        # used by libunwind
+        m
+        util
+        argp
+    )
+endif(CYGWIN)
 
 ##############################################
 #   Installation
