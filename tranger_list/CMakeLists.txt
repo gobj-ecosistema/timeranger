@@ -69,12 +69,12 @@ else(NOT CYGWIN)
         /yuneta/development/output/lib/libuv.a
         /yuneta/development/output/lib/libjansson.a
         /yuneta/development/output/lib/libpcre2-8.a
+        /yuneta/development/output/lib/libargp.a
 
         pthread dl  # used by libuv
         lzma        # used by libunwind
         m
         util
-        argp
     )
 endif(NOT CYGWIN)
 
