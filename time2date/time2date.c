@@ -10,7 +10,7 @@
 #include <argp.h>
 #include <time.h>
 #include <errno.h>
-#include <regex.h>
+#include <pcre2posix.h>
 #include <locale.h>
 #include <libintl.h>
 #include <stdint.h>
