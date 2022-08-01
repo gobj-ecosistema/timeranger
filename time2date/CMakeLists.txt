@@ -2,7 +2,7 @@
 #   CMake
 ##############################################
 project(time2date C)
-cmake_minimum_required(VERSION 3.0)
+cmake_minimum_required(VERSION 3.13)
 include(CheckIncludeFiles)
 include(CheckSymbolExists)
 
@@ -12,7 +12,11 @@ set(INC_DEST_DIR ${CMAKE_INSTALL_PREFIX}/include)
 set(LIB_DEST_DIR ${CMAKE_INSTALL_PREFIX}/lib)
 set(BIN_DEST_DIR /yuneta/bin)
 
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -std=c99")
+set(CMAKE_C_STANDARD 99)
+
+if(LINUX)
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall")
+endif()
 
 if(CMAKE_BUILD_TYPE MATCHES Debug)
   add_definitions(-DDEBUG)
@@ -28,7 +32,14 @@ endif(CMAKE_BUILD_TYPE MATCHES Debug)
 add_definitions(-D_GNU_SOURCE)
 add_definitions(-D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64)
 
-include_directories(/yuneta/development/output/include)
+IF(WIN32)
+    include_directories(c:/yuneta/development/output/include)
+    include_directories(c:/yuneta/development/output/include/regex)
+    include_directories(c:/yuneta/development/output/OpenSSL-Win64/include)
+    add_definitions(-D_CRT_SECURE_NO_WARNINGS)
+ELSEIF(LINUX)
+    include_directories(/yuneta/development/output/include)
+ENDIF()
 
 ##############################################
 #   Source
@@ -43,18 +54,34 @@ SET (YUNO_SRCS
 ##############################################
 ADD_EXECUTABLE(time2date ${YUNO_SRCS} ${YUNO_HDRS})
 
-TARGET_LINK_LIBRARIES(time2date
-    /yuneta/development/output/lib/libghelpers.a
-    /yuneta/development/output/lib/libuv.a
-    /yuneta/development/output/lib/libjansson.a
-    /yuneta/development/output/lib/libunwind.a
-    /yuneta/development/output/lib/libpcre2-8.a
+IF(WIN32)
+    link_directories(c:/yuneta/development/output/lib/)
+ELSEIF(LINUX)
+    link_directories(/yuneta/development/output/lib/)
+ENDIF()
 
-    pthread dl  # used by libuv
-    lzma        # used by libunwind
-    m
-    util
-)
+IF(WIN32)
+    TARGET_LINK_LIBRARIES(time2date
+        libghelpers.a
+        libuv.a
+        libjansson.a
+        libpcre2-8.a
+    )
+ELSEIF(LINUX)
+    TARGET_LINK_LIBRARIES(time2date
+        /yuneta/development/output/lib/libghelpers.a
+        /yuneta/development/output/lib/libuv.a
+        /yuneta/development/output/lib/libjansson.a
+        /yuneta/development/output/lib/libunwind.a
+        /yuneta/development/output/lib/libpcre2-8.a
+
+        pthread dl  # used by libuv
+        lzma        # used by libunwind
+        m
+        util
+    )
+ENDIF()
+
 
 ##############################################
 #   Installation
