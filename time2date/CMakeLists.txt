@@ -62,10 +62,12 @@ ADD_EXECUTABLE(time2date ${YUNO_SRCS} ${YUNO_HDRS})
 
 IF(WIN32)
     TARGET_LINK_LIBRARIES(time2date
-        libghelpers.a
-        libuv.a
-        libjansson.a
-        libpcre2-8.a
+        ghelpers
+        uv
+        jansson
+        pcre2-8
+        regex
+        argp
     )
 ELSEIF(UNIX)
     TARGET_LINK_LIBRARIES(time2date
