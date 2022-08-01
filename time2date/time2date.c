@@ -10,17 +10,9 @@
 #include <argp.h>
 #include <time.h>
 #include <errno.h>
-#include <regex.h>
 #include <locale.h>
-#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
-#include <time.h>
-#if defined(__linux__)
-    #include <libintl.h>
-    #include <unistd.h>
-#endif
-
 #include <ghelpers.h>
 
 /***************************************************************************
