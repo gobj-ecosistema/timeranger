@@ -64,10 +64,11 @@ IF(WIN32)
     TARGET_LINK_LIBRARIES(time2date
         ghelpers
         uv
-        jansson
-        pcre2-8
+        jansson_d
+        pcre2-8-staticd
         regex
         argp
+        ws2_32
     )
 ELSEIF(UNIX)
     TARGET_LINK_LIBRARIES(time2date
