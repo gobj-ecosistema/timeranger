@@ -37,7 +37,7 @@ IF(WIN32)
     include_directories(c:/yuneta/development/output/include/regex)
     include_directories(c:/yuneta/development/output/OpenSSL-Win64/include)
     add_definitions(-D_CRT_SECURE_NO_WARNINGS)
-ELSEIF(LINUX)
+ELSEIF(UNIX)
     include_directories(/yuneta/development/output/include)
 ENDIF()
 
@@ -56,7 +56,7 @@ ADD_EXECUTABLE(time2date ${YUNO_SRCS} ${YUNO_HDRS})
 
 IF(WIN32)
     link_directories(c:/yuneta/development/output/lib/)
-ELSEIF(LINUX)
+ELSEIF(UNIX)
     link_directories(/yuneta/development/output/lib/)
 ENDIF()
 
@@ -67,7 +67,7 @@ IF(WIN32)
         libjansson.a
         libpcre2-8.a
     )
-ELSEIF(LINUX)
+ELSEIF(UNIX)
     TARGET_LINK_LIBRARIES(time2date
         /yuneta/development/output/lib/libghelpers.a
         /yuneta/development/output/lib/libuv.a
