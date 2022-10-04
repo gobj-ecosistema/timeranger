@@ -611,11 +611,13 @@ PRIVATE BOOL list_recursive_topic_cb(
 
     _list_messages(&list_params_);
 
-    printf("====> %s %s: %d records\n\n",
-        arguments.database,
-        arguments.topic,
-        partial_counter
-    );
+    if(partial_counter > 0) {
+        printf("====> %s %s: %d records\n\n",
+               arguments.database,
+               arguments.topic,
+               partial_counter
+        );
+    }
 
     return TRUE; // to continue
 }
