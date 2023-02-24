@@ -14,7 +14,7 @@ set(BIN_DEST_DIR /yuneta/bin)
 
 set(CMAKE_C_STANDARD 99)
 
-if(LINUX)
+if(LINUX OR UNIX OR CMAKE_COMPILER_IS_GNUCC)
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall")
 endif()
 
