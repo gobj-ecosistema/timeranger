@@ -1,8 +1,8 @@
 ##############################################
 #   CMake
 ##############################################
-project(timeranger C)
 cmake_minimum_required(VERSION 3.0)
+project(timeranger C)
 include(CheckIncludeFiles)
 include(CheckSymbolExists)
 

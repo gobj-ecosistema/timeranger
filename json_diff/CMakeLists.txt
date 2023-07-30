@@ -1,8 +1,8 @@
 ##############################################
 #   CMake
 ##############################################
-project(json_diff C)
 cmake_minimum_required(VERSION 3.0)
+project(json_diff C)
 include(CheckIncludeFiles)
 include(CheckSymbolExists)
 

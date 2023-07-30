@@ -1,8 +1,8 @@
 ##############################################
 #   CMake
 ##############################################
-project(tranger_migrate C)
 cmake_minimum_required(VERSION 3.0)
+project(tranger_migrate C)
 include(CheckIncludeFiles)
 include(CheckSymbolExists)
 

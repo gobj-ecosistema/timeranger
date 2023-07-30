@@ -1,8 +1,8 @@
 ##############################################
 #   CMake
 ##############################################
-project(treedb_list C)
 cmake_minimum_required(VERSION 3.0)
+project(treedb_list C)
 include(CheckIncludeFiles)
 include(CheckSymbolExists)
 

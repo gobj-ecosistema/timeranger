@@ -1,8 +1,8 @@
 ##############################################
 #   CMake
 ##############################################
-project(tranger_delete C)
 cmake_minimum_required(VERSION 3.0)
+project(tranger_delete C)
 include(CheckIncludeFiles)
 include(CheckSymbolExists)
 
