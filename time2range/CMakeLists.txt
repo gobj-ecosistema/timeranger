@@ -1,7 +1,7 @@
 ##############################################
 #   CMake
 ##############################################
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 3.11)
 project(time2range C)
 include(CheckIncludeFiles)
 include(CheckSymbolExists)
