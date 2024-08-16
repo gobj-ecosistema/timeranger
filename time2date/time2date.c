@@ -113,6 +113,25 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state)
     return 0;
 }
 
+void ull_to_hex_string(unsigned long long num, char *hexString, char separate) {
+    char temp[5];  // Temporary buffer to store each 4-digit hex group
+    int i;
+
+    // Initialize the string
+    hexString[0] = '\0';
+
+    // Process each group of 4 hex digits (16 bits) from the most significant to least
+    for (i = (sizeof(num) * 2) - 4; i >= 0; i -= 4) {
+        unsigned long long part = (num >> (i * 4)) & 0xFFFF;  // Extract 16 bits (4 hex digits)
+        sprintf(temp, "%04llx", part);  // Convert the 16 bits to a 4-digit hex string
+        if (strlen(hexString) > 0) {
+            if(separate) {
+                strcat(hexString, "-");  // Add space between groups
+            }
+        }
+        strcat(hexString, temp);  // Append the current group to the final string
+    }}
+
 /***************************************************************************
  *                      Main
  ***************************************************************************/
@@ -140,8 +159,8 @@ int main(int argc, char *argv[])
         snprintf(now, sizeof(now), "%ld", t);
         arguments.args[0] = now;
     }
-    if(all_numbers(arguments.args[0])) {
-        timestamp = atoll(arguments.args[0]);
+    if(isdigit(arguments.args[0][0])) {
+        timestamp = strtoull(arguments.args[0], NULL, 0);
     } else {
         parse_date_basic(arguments.args[0], &timestamp, &offset);
     }
@@ -152,6 +171,10 @@ int main(int argc, char *argv[])
     char utc_stamp[164];
 
     tm = gmtime((time_t *)&timestamp);
+    if(!tm) {
+        printf("timestamp too big\n");
+        exit(-1);
+    }
     strftime(utc_stamp, sizeof(utc_stamp), "%Y-%m-%dT%H:%M:%S%z", tm);
 
     if(empty_string(arguments.TZ)) {
@@ -159,8 +182,13 @@ int main(int argc, char *argv[])
         tm = localtime((time_t *)&timestamp);
         strftime(local_stamp, sizeof(local_stamp), "%Y-%m-%dT%H:%M:%S%z", tm);
 
-        printf("gmtime of %"PRItime": UTC %s, LOCAL %s, yday %d\n",
-            timestamp, utc_stamp, local_stamp, tm->tm_yday
+        char hexString[1264];  // Buffer to store the resulting string
+        ull_to_hex_string(timestamp, hexString, 0);
+        char hexString2[1264];  // Buffer to store the resulting string
+        ull_to_hex_string(timestamp, hexString2, 1);
+
+        printf("gmtime of %"PRItime" (0x%s %s): UTC %s, LOCAL %s, yday %d\n",
+            timestamp, hexString, hexString2, utc_stamp, local_stamp, tm->tm_yday
         );
     } else {
         char local_stamp[164];
@@ -173,8 +201,13 @@ int main(int argc, char *argv[])
         gmtime2timezone(timestamp, arguments.TZ, &tm2, &offset);
         strftime(tz_stamp, sizeof(tz_stamp), "%FT%T%z", &tm2);
 
-        printf("gmtime of %"PRItime": UTC %s, %s %s, LOCAL %s, yday %d\n",
-            timestamp, utc_stamp, arguments.TZ, tz_stamp, local_stamp, tm2.tm_yday
+        char hexString[1264];  // Buffer to store the resulting string
+        ull_to_hex_string(timestamp, hexString, 0);
+        char hexString2[1264];  // Buffer to store the resulting string
+        ull_to_hex_string(timestamp, hexString2, 1);
+
+        printf("gmtime of %"PRItime" (0x%s %s): UTC %s, %s %s, LOCAL %s, yday %d\n",
+            timestamp, hexString, hexString2, utc_stamp, arguments.TZ, tz_stamp, local_stamp, tm2.tm_yday
         );
     }
     return 0;
