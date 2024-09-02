@@ -159,7 +159,7 @@ int main(int argc, char *argv[])
         snprintf(now, sizeof(now), "%ld", t);
         arguments.args[0] = now;
     }
-    if(isdigit(arguments.args[0][0])) {
+    if(strstr(arguments.args[0], "T")==NULL) {
         timestamp = strtoull(arguments.args[0], NULL, 0);
     } else {
         parse_date_basic(arguments.args[0], &timestamp, &offset);
