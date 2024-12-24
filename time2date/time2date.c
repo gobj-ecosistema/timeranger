@@ -38,6 +38,7 @@ struct arguments
 {
     char *args[MAX_ARGS+1];     /* positional args */
     char *TZ;
+    BOOL time_in_miliseconds;
 };
 
 /***************************************************************************
@@ -64,7 +65,8 @@ static char args_doc[] = "TIME_T";
  */
 static struct argp_option options[] = {
 /*-name-----------------key-----arg-----------------flags---doc-----------------group */
-{"TZ",                  'z',    "TIME_ZONE",        0,      "Time zone.",       4},
+{"TZ",                  'z',    "TIME_ZONE",        0,      "Time zone.",       1},
+{"miliseconds",         'm',    0,                  0,      "Time in miliseconds",1},
 {0}
 };
 
@@ -98,6 +100,10 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state)
 
     case 'z':
         arguments->TZ = arg;
+        break;
+
+    case 'm':
+        arguments->time_in_miliseconds = 1;
         break;
 
     case ARGP_KEY_END:
@@ -159,10 +165,14 @@ int main(int argc, char *argv[])
         snprintf(now, sizeof(now), "%ld", t);
         arguments.args[0] = now;
     }
-    if(strstr(arguments.args[0], "T")==NULL) {
-        timestamp = strtoull(arguments.args[0], NULL, 0);
-    } else {
+    if(strstr(arguments.args[0], "T")) {
+        // standard date format: <date>T<time>
         parse_date_basic(arguments.args[0], &timestamp, &offset);
+    } else {
+        timestamp = strtoull(arguments.args[0], NULL, 0);
+        if(arguments.time_in_miliseconds) {
+            timestamp /= 1000;
+        }
     }
 
     setlocale(LC_ALL, "en_US.UTF-8"); //Deja el numero (PRItime) tal cual
